@@ -119,4 +119,17 @@ export interface StudentProfile {
   visitedCities: string[];
   unlockedVehicles?: VehicleType[];
   purchasedTickets?: string[];
+  lastDailyRewardDate?: string; // YYYY-MM-DD
+  dailyStreak?: number; // 1 to 7
+}
+
+export type WeatherCondition = 'sunny' | 'rainy' | 'snowy';
+
+export interface WeatherInfo {
+  condition: WeatherCondition;
+  label: string;
+  icon: string;
+  tempCelsius: number;
+  description: string;
+  ambianceEffect: string;
 }

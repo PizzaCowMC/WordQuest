@@ -1,6 +1,6 @@
 {
   "name": "WordQuest: City Monster Adventure",
-  "description": "An interactive street-map English learning game where students explore real city roads with WASD, battle road monsters with English questions, and fly across 10 world cities.",
+  "description": "An interactive street-map English learning game where students explore real city roads with WASD or mobile virtual joysticks, track live position with a real-time district mini-map radar, battle road monsters with English questions, save and backup progress, and fly across 26 world cities.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

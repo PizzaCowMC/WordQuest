@@ -1,5 +1,6 @@
 import { StarterCompanion, CityData } from '../types';
 import { CITY_TRANSIT_STATIONS, CITY_LESSONS_INFO, SEOUL_CITY, BERLIN_CITY } from './transitData';
+import { EXPANDED_CITIES_13_TO_26 } from './expandedCities';
 
 export const STARTERS: StarterCompanion[] = [
   {
@@ -1502,6 +1503,7 @@ export const INITIAL_CITIES: CityData[] = [
     }))
   })),
   SEOUL_CITY,
-  BERLIN_CITY
+  BERLIN_CITY,
+  ...EXPANDED_CITIES_13_TO_26
 ];
 

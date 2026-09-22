@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import L from 'leaflet';
-import { CityData, Monster, StudentProfile, TransitStation, VehicleType } from '../types';
+import { CityData, Monster, StudentProfile, TransitStation, VehicleType, WeatherCondition } from '../types';
 import { VEHICLE_OPTIONS } from '../data/transitData';
 import { soundEffects } from '../utils/audio';
 import { 
@@ -17,11 +17,19 @@ import {
   ArrowDown,
   ArrowLeft,
   ArrowRight,
-  BookOpen,
   RotateCcw,
   Navigation,
-  Smartphone
+  Smartphone,
+  Save,
+  Map as MapIcon,
+  Settings as SettingsIcon,
+  Gift,
+  Train
 } from 'lucide-react';
+import { CityMiniMapOverlay } from './CityMiniMapOverlay';
+import { VirtualJoystick } from './VirtualJoystick';
+import { SettingsModal } from './SettingsModal';
+import { CityWeatherOverlay, CityWeatherWidget } from './CityWeatherOverlay';
 
 interface CityMapViewProps {
   currentCity: CityData;
@@ -36,14 +44,19 @@ interface CityMapViewProps {
   onOpenLessonGuide: () => void;
   onOpenTransitHub: (station?: TransitStation) => void;
   onOpenPhone: () => void;
+  onOpenSaveSystem?: () => void;
+  onOpenDailyReward?: () => void;
   onSelectVehicle?: (vehicle: VehicleType) => void;
   onResetClick: () => void;
   isMuted: boolean;
   onToggleMute: () => void;
+  showMiniMap?: boolean;
+  onToggleMiniMap?: () => void;
+  fastTravelTarget?: TransitStation | null;
 }
 
 // Helper to bound player and map strictly inside the city district
-const computeCityBounds = (city: CityData): L.LatLngBounds => {
+export const computeCityBounds = (city: CityData) => {
   const points: [number, number][] = [
     city.coordinates, 
     ...city.monsters.map(m => m.position),
@@ -51,14 +64,18 @@ const computeCityBounds = (city: CityData): L.LatLngBounds => {
   ];
   const lats = points.map(p => p[0]);
   const lngs = points.map(p => p[1]);
-  const minLat = Math.min(...lats);
-  const maxLat = Math.max(...lats);
-  const minLng = Math.min(...lngs);
-  const maxLng = Math.max(...lngs);
-  return L.latLngBounds(
-    [minLat - 0.04, minLng - 0.05],
-    [maxLat + 0.04, maxLng + 0.05]
-  );
+  // Tight buffer around all city landmarks and monsters to lock in district
+  const minLat = Math.min(...lats) - 0.007;
+  const maxLat = Math.max(...lats) + 0.007;
+  const minLng = Math.min(...lngs) - 0.010;
+  const maxLng = Math.max(...lngs) + 0.010;
+  return {
+    minLat,
+    maxLat,
+    minLng,
+    maxLng,
+    latLngBounds: L.latLngBounds([minLat, minLng], [maxLat, maxLng])
+  };
 };
 
 export const CityMapView: React.FC<CityMapViewProps> = ({
@@ -74,18 +91,26 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
   onOpenLessonGuide,
   onOpenTransitHub,
   onOpenPhone,
+  onOpenSaveSystem,
+  onOpenDailyReward,
   onSelectVehicle,
   onResetClick,
   isMuted,
-  onToggleMute
+  onToggleMute,
+  showMiniMap: propShowMiniMap,
+  onToggleMiniMap: propOnToggleMiniMap,
+  fastTravelTarget
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const playerMarkerRef = useRef<L.Marker | null>(null);
   const monsterMarkersRef = useRef<{ [id: string]: L.Marker }>({});
   const stationMarkersRef = useRef<{ [id: string]: L.Marker }>({});
-  const trafficMarkersRef = useRef<{ [id: string]: L.Marker }>({});
   const tileLayerRef = useRef<L.TileLayer | null>(null);
+
+  // Check if daily reward has been claimed today
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  const isDailyRewardClaimed = student.lastDailyRewardDate === todayStr;
 
   // Player coordinates in the current city
   const [playerPosition, setPlayerPosition] = useState<[number, number]>(currentCity.coordinates);
@@ -93,6 +118,54 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
   const [facingDirection, setFacingDirection] = useState<'N' | 'S' | 'E' | 'W'>('N');
   const [isWalking, setIsWalking] = useState<boolean>(false);
   const [currentZoom, setCurrentZoom] = useState<number>(Math.max(currentCity.zoom || 15, 14));
+
+  // Handle City Express Lines Fast Travel Teleport
+  useEffect(() => {
+    if (fastTravelTarget && fastTravelTarget.position) {
+      setPlayerPosition(fastTravelTarget.position);
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.flyTo(fastTravelTarget.position, 16, { animate: true, duration: 1.2 });
+      }
+    }
+  }, [fastTravelTarget]);
+
+  // Dynamic Weather System (Cycles Sunny -> Rainy -> Snowy every 15 min)
+  const [manualWeather, setManualWeather] = useState<WeatherCondition | null>(null);
+  const [currentWeather, setCurrentWeather] = useState<WeatherCondition>(() => {
+    const cycleIndex = Math.floor(Date.now() / (15 * 60 * 1000)) % 3;
+    return (['sunny', 'rainy', 'snowy'] as WeatherCondition[])[cycleIndex];
+  });
+  const effectiveWeather = manualWeather || currentWeather;
+  
+  // Local mini-map radar overlay fallback (OFF by default as requested by user)
+  const [localShowMiniMap, setLocalShowMiniMap] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('wordquest_minimap_enabled');
+      return saved !== null ? saved === 'true' : false; // Default: false (OFF)
+    } catch {
+      return false; // Default: false (OFF)
+    }
+  });
+
+  const showMiniMap = propShowMiniMap !== undefined ? propShowMiniMap : localShowMiniMap;
+
+  const handleToggleMiniMap = useCallback(() => {
+    if (propOnToggleMiniMap) {
+      propOnToggleMiniMap();
+    } else {
+      setLocalShowMiniMap(prev => {
+        const next = !prev;
+        try {
+          localStorage.setItem('wordquest_minimap_enabled', String(next));
+        } catch {
+          // Ignore
+        }
+        return next;
+      });
+    }
+  }, [propOnToggleMiniMap]);
+
+  const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
   const walkingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Check how many monsters in this city are defeated
@@ -102,8 +175,8 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
   const totalMonsters = currentCity.monsters.length;
   const allDefeated = defeatedCount >= totalMonsters && totalMonsters > 0;
 
-  // Find active vehicle details
-  const activeVehicleOption = VEHICLE_OPTIONS.find(v => v.type === student.activeVehicle) || VEHICLE_OPTIONS[0];
+  // Player is an Explorer on Foot walking through the city streets (no car)
+  const activeVehicleOption = VEHICLE_OPTIONS[0];
 
   // Initialize and update Leaflet Map with strict bounds and clean OSM tiles (NO zoom-out past city)
   useEffect(() => {
@@ -118,7 +191,7 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
         zoom: initialZoom,
         minZoom: 14, // Strictly prevents zooming out past street/city district
         maxZoom: 18,
-        maxBounds: cityBounds,
+        maxBounds: cityBounds.latLngBounds,
         maxBoundsViscosity: 1.0, // Totally impenetrable boundary
         worldCopyJump: false,
         zoomControl: false,
@@ -143,14 +216,14 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
       tileLayerRef.current = streetTiles;
       mapInstanceRef.current = map;
     } else {
-      mapInstanceRef.current.setMaxBounds(cityBounds);
+      mapInstanceRef.current.setMaxBounds(cityBounds.latLngBounds);
       mapInstanceRef.current.setMinZoom(14);
       mapInstanceRef.current.setMaxZoom(18);
       mapInstanceRef.current.setView(currentCity.coordinates, initialZoom);
       setCurrentZoom(initialZoom);
       setPlayerPosition(currentCity.coordinates);
     }
-  }, [currentCity.id]);
+  }, [currentCity.id, currentCity]);
 
   // Handle Tile Style switch
   useEffect(() => {
@@ -353,124 +426,14 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
     });
   }, [currentCity.monsters, student.defeatedMonsterIds, onSelectMonster]);
 
-  // Ambient City Street Traffic Simulation (Cars, Taxis, Buses, Trains moving along roads)
-  useEffect(() => {
-    if (!mapInstanceRef.current) return;
-
-    Object.values(trafficMarkersRef.current).forEach(m => m.remove());
-    trafficMarkersRef.current = {};
-
-    const baseLat = currentCity.coordinates[0];
-    const baseLng = currentCity.coordinates[1];
-
-    const trafficVehicles = [
-      {
-        id: 'traffic-cab',
-        name: 'City Taxi',
-        icon: '🚕',
-        color: 'bg-amber-400 text-slate-950',
-        offset: [0.0032, -0.0035],
-        delta: [0.00010, 0.00016],
-        type: 'taxi' as VehicleType
-      },
-      {
-        id: 'traffic-bus',
-        name: 'Transit Bus',
-        icon: '🚌',
-        color: 'bg-emerald-500 text-white',
-        offset: [-0.0035, 0.0022],
-        delta: [-0.00012, 0.00014],
-        type: 'bus' as VehicleType
-      },
-      {
-        id: 'traffic-car',
-        name: 'Roadster Car',
-        icon: '🚗',
-        color: 'bg-red-500 text-white',
-        offset: [0.0018, 0.0042],
-        delta: [0.00014, -0.00016],
-        type: 'car' as VehicleType
-      },
-      {
-        id: 'traffic-train',
-        name: 'Express Rail',
-        icon: '🚅',
-        color: 'bg-indigo-600 text-white',
-        offset: [-0.0022, -0.0050],
-        delta: [0.00022, 0.00008],
-        type: 'bullet_train' as VehicleType
-      }
-    ];
-
-    let step = 0;
-    const markers: { [id: string]: L.Marker } = {};
-
-    trafficVehicles.forEach((veh, index) => {
-      const pos: [number, number] = [
-        baseLat + veh.offset[0],
-        baseLng + veh.offset[1]
-      ];
-
-      const html = `
-        <div class="relative flex flex-col items-center cursor-pointer group hover:scale-125 transition-transform" title="Click to board ${veh.name}">
-          <div class="w-6 h-6 rounded-lg ${veh.color} border border-white/80 shadow-md flex items-center justify-center text-xs shadow-black/40">
-            <span>${veh.icon}</span>
-          </div>
-          <div class="text-[7px] font-bold text-white bg-slate-900/90 px-1 rounded shadow-sm whitespace-nowrap mt-0.5 border border-slate-700">
-            ${veh.name}
-          </div>
-        </div>
-      `;
-
-      const icon = L.divIcon({
-        html,
-        className: 'custom-traffic-marker',
-        iconSize: [26, 36],
-        iconAnchor: [13, 26]
-      });
-
-      const m = L.marker(pos, { icon, zIndexOffset: 250 }).addTo(mapInstanceRef.current!);
-      m.on('click', () => {
-        soundEffects.playHonk();
-        if (onSelectVehicle) {
-          onSelectVehicle(veh.type);
-        } else {
-          onOpenPhone();
-        }
-      });
-
-      markers[veh.id] = m;
-    });
-
-    trafficMarkersRef.current = markers;
-
-    const interval = setInterval(() => {
-      step++;
-      trafficVehicles.forEach((veh, idx) => {
-        const marker = markers[veh.id];
-        if (!marker) return;
-        const oscillation = Math.sin((step * 0.12) + (idx * 1.6));
-        const newLat = baseLat + veh.offset[0] + (veh.delta[0] * oscillation * 6);
-        const newLng = baseLng + veh.offset[1] + (veh.delta[1] * oscillation * 6);
-        marker.setLatLng([newLat, newLng]);
-      });
-    }, 1000);
-
-    return () => {
-      clearInterval(interval);
-      Object.values(markers).forEach(m => m.remove());
-      trafficMarkersRef.current = {};
-    };
-  }, [currentCity.coordinates, onSelectVehicle, onOpenPhone]);
-
-  // WASD MOVEMENT HANDLER (With active vehicle speed multiplier)
+  // WASD / Keyboard MOVEMENT HANDLER with strict boundary clamping (Impossible to leave map)
   const moveTrainer = useCallback((dir: 'W' | 'A' | 'S' | 'D') => {
     // If in battle, ignore movement
     if (activeMonster) return;
 
-    // Base step multiplied by vehicle speed (e.g. 1.8x bicycle, 2.6x taxi, 3.5x subway, 5.0x train)
-    const multiplier = activeVehicleOption.speedMultiplier || 1.0;
-    const STEP = 0.00045 * multiplier;
+    // Steady, realistic walking pace for street-level exploration
+    const STEP = 0.00015;
+    const bounds = computeCityBounds(currentCity);
 
     setPlayerPosition(prev => {
       let [lat, lng] = prev;
@@ -488,12 +451,16 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
         setFacingDirection('E');
       }
 
+      // IMPOSSIBLE TO GET OUT OF THE MAP: strictly clamp coordinates within district bounds
+      const clampedLat = Math.max(bounds.minLat, Math.min(bounds.maxLat, lat));
+      const clampedLng = Math.max(bounds.minLng, Math.min(bounds.maxLng, lng));
+      const newPos: [number, number] = [clampedLat, clampedLng];
+
       // Check proximity to any undefeated monster
-      const newPos: [number, number] = [lat, lng];
       currentCity.monsters.forEach(m => {
         if (!student.defeatedMonsterIds.includes(m.id)) {
-          const dLat = Math.abs(m.position[0] - lat);
-          const dLng = Math.abs(m.position[1] - lng);
+          const dLat = Math.abs(m.position[0] - clampedLat);
+          const dLng = Math.abs(m.position[1] - clampedLng);
           if (dLat < 0.0007 && dLng < 0.0007) {
             // Walked directly into monster! Start battle
             soundEffects.playSelect();
@@ -502,7 +469,7 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
         }
       });
 
-      // Pan map smoothly if player gets near edges
+      // Pan map smoothly to stay centered on player
       if (mapInstanceRef.current) {
         mapInstanceRef.current.panTo(newPos, { animate: true, duration: 0.15 });
       }
@@ -513,7 +480,7 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
     setIsWalking(true);
     if (walkingTimerRef.current) clearTimeout(walkingTimerRef.current);
     walkingTimerRef.current = setTimeout(() => setIsWalking(false), 200);
-  }, [activeMonster, currentCity.monsters, student.defeatedMonsterIds, onSelectMonster, activeVehicleOption]);
+  }, [activeMonster, currentCity, student.defeatedMonsterIds, onSelectMonster]);
 
   // Global Keyboard Listener for WASD and Arrow Keys
   useEffect(() => {
@@ -602,32 +569,53 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
             </div>
           </div>
 
-          {/* Lesson Guide Button */}
+          {/* Dynamic Weather System Widget (15-Minute Cycle: Sunny -> Rainy -> Snowy) */}
+          <CityWeatherWidget
+            currentWeather={effectiveWeather}
+            onSelectWeather={setManualWeather}
+            isManualOverride={manualWeather !== null}
+          />
+
+          {/* Daily Reward Bonus Button */}
+          {onOpenDailyReward && (
+            <button
+              id="open-daily-reward-btn"
+              onClick={() => {
+                soundEffects.playSelect();
+                onOpenDailyReward();
+              }}
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-2xl border text-xs font-black shadow-lg transition active:scale-95 cursor-pointer shrink-0 ${
+                isDailyRewardClaimed
+                  ? 'bg-slate-900/95 border-emerald-500/40 text-emerald-400 hover:bg-slate-800'
+                  : 'bg-gradient-to-r from-amber-400 to-amber-500 border-amber-300 text-slate-950 hover:from-amber-300 hover:to-amber-400 shadow-amber-500/30 animate-pulse'
+              }`}
+              title={isDailyRewardClaimed ? "Daily Bonus Claimed for Today (Streak Active)" : "Claim Today's Bonus Coins & XP!"}
+            >
+              <Gift className="w-4 h-4 shrink-0" />
+              <span className="hidden sm:inline">Daily Bonus</span>
+              {!isDailyRewardClaimed && (
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-ping inline-block" />
+              )}
+            </button>
+          )}
+
+          {/* City Express Lines Button */}
           <button
-            onClick={onOpenLessonGuide}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-bold shadow-lg transition cursor-pointer"
-            title="Open City English Lesson & Grammar Rules"
+            id="open-city-express-lines-btn"
+            onClick={() => {
+              soundEffects.playSelect();
+              onOpenTransitHub();
+            }}
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-2xl bg-gradient-to-r from-sky-600 to-blue-700 hover:from-sky-500 hover:to-blue-600 border border-sky-400/60 text-white text-xs font-black shadow-lg shadow-sky-500/20 transition active:scale-95 cursor-pointer shrink-0"
+            title="Open City Express Lines Rapid Transit Hub"
           >
-            <BookOpen className="w-4 h-4" />
-            <span className="hidden sm:inline">English Lesson</span>
+            <Train className="w-4 h-4 text-sky-200 shrink-0" />
+            <span className="hidden sm:inline">Express Lines</span>
           </button>
         </div>
 
-        {/* Center/Right: Vehicle Switcher & Transit Hub Pill */}
+        {/* Center/Right: Action Buttons & Progress Pill */}
         <div className="pointer-events-auto flex items-center gap-2">
-          {/* Active Vehicle Status & Quick Change */}
-          <button
-            onClick={() => onOpenTransitHub()}
-            className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-slate-900/95 backdrop-blur-md border border-slate-700 hover:border-sky-400 text-white text-xs font-bold shadow-xl transition cursor-pointer"
-            title="Switch Vehicle (Walk, Bicycle, Bus, Taxi, Car, Subway, Train)"
-          >
-            <span className="text-lg">{activeVehicleOption.icon}</span>
-            <span className="hidden md:inline">{activeVehicleOption.name}</span>
-            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-800 text-sky-300 font-mono">
-              {activeVehicleOption.speedMultiplier}x
-            </span>
-          </button>
-
           {/* Smartphone App Button (Call Taxi, Buy Tickets, Change Models) */}
           <button
             id="open-smartphone-btn"
@@ -673,6 +661,33 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
             <span className="hidden lg:inline">Guide</span>
           </button>
 
+          {/* Save System Button */}
+          {onOpenSaveSystem && (
+            <button
+              id="open-save-system-btn"
+              onClick={onOpenSaveSystem}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/40 text-blue-300 hover:text-white text-xs font-bold shadow-lg transition cursor-pointer"
+              title="Save Adventure, Slots & Export / Import Files"
+            >
+              <Save className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Save</span>
+            </button>
+          )}
+
+          {/* Settings Button (Opens Settings modal to toggle Mini-Map, Sound, etc.) */}
+          <button
+            id="toggle-settings-btn"
+            onClick={() => {
+              soundEffects.playSelect();
+              setShowSettingsModal(true);
+            }}
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-2xl bg-slate-900/95 border border-slate-700 hover:border-sky-400 text-slate-300 hover:text-white text-xs font-bold shadow-lg transition cursor-pointer"
+            title="Settings (Mini-Map, Sounds & Controls)"
+          >
+            <SettingsIcon className="w-3.5 h-3.5 text-sky-400" />
+            <span className="hidden sm:inline">Settings</span>
+          </button>
+
           {/* Reset Button (Requested by User) */}
           <button
             onClick={onResetClick}
@@ -688,59 +703,52 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
       {/* 2. LEAFLET MAP CANVAS (NO click-to-walk on map; only clicking monsters triggers battle) */}
       <div 
         ref={mapContainerRef} 
-        className="w-full h-full z-0 cursor-default"
+        className={`w-full h-full z-0 cursor-default transition-all duration-1000 ${
+          effectiveWeather === 'rainy'
+            ? 'brightness-[0.88] saturate-[0.85] contrast-[1.04]'
+            : effectiveWeather === 'snowy'
+            ? 'brightness-[1.04] saturate-[0.78] contrast-[0.98]'
+            : 'brightness-[1.02] saturate-[1.10]'
+        }`}
       />
 
-      {/* 3. ON-SCREEN WASD D-PAD CONTROLLER (BOTTOM-LEFT) */}
-      <div className="absolute bottom-6 left-4 z-[400] pointer-events-auto flex flex-col items-center">
-        <div className="p-2.5 rounded-2xl bg-slate-900/90 backdrop-blur-md border border-slate-700/80 shadow-2xl flex flex-col items-center gap-1.5">
-          <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">
-            Walk / Drive (WASD)
-          </div>
+      {/* 2b. DYNAMIC WEATHER AMBIANCE & PARTICLE OVERLAY (Sunny, Rainy, Snowy 15-min cycle) */}
+      <CityWeatherOverlay
+        manualWeather={manualWeather}
+        onWeatherChange={setCurrentWeather}
+      />
 
-          {/* W Button */}
-          <button
-            onClick={() => moveTrainer('W')}
-            className="w-11 h-11 rounded-xl bg-slate-800 hover:bg-amber-400 hover:text-slate-950 active:scale-90 border border-slate-600 text-slate-200 font-bold flex flex-col items-center justify-center transition shadow cursor-pointer"
-            title="Walk North (W / Up)"
-          >
-            <ArrowUp className="w-4 h-4" />
-            <span className="text-[9px] -mt-0.5 font-mono">W</span>
-          </button>
+      {/* 3. REAL-TIME MINI-MAP OVERLAY (RELATIVE TO CITY BOUNDARIES) */}
+      {showMiniMap && (
+        <aside 
+          aria-label="City Mini-Map Radar" 
+          className="absolute top-18 right-3 sm:right-4 z-[400] pointer-events-none animate-in fade-in slide-in-from-top-3 duration-200"
+        >
+          <CityMiniMapOverlay
+            currentCity={currentCity}
+            playerPosition={playerPosition}
+            facingDirection={facingDirection}
+            defeatedMonsterIds={student.defeatedMonsterIds}
+            activeVehicleIcon={activeVehicleOption.icon}
+            onPanToLocation={(coords) => {
+              if (mapInstanceRef.current) {
+                mapInstanceRef.current.panTo(coords, { animate: true, duration: 0.3 });
+                soundEffects.playSelect();
+              }
+            }}
+          />
+        </aside>
+      )}
 
-          {/* A, S, D Row */}
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => moveTrainer('A')}
-              className="w-11 h-11 rounded-xl bg-slate-800 hover:bg-amber-400 hover:text-slate-950 active:scale-90 border border-slate-600 text-slate-200 font-bold flex flex-col items-center justify-center transition shadow cursor-pointer"
-              title="Walk West (A / Left)"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span className="text-[9px] -mt-0.5 font-mono">A</span>
-            </button>
-
-            <button
-              onClick={() => moveTrainer('S')}
-              className="w-11 h-11 rounded-xl bg-slate-800 hover:bg-amber-400 hover:text-slate-950 active:scale-90 border border-slate-600 text-slate-200 font-bold flex flex-col items-center justify-center transition shadow cursor-pointer"
-              title="Walk South (S / Down)"
-            >
-              <ArrowDown className="w-4 h-4" />
-              <span className="text-[9px] -mt-0.5 font-mono">S</span>
-            </button>
-
-            <button
-              onClick={() => moveTrainer('D')}
-              className="w-11 h-11 rounded-xl bg-slate-800 hover:bg-amber-400 hover:text-slate-950 active:scale-90 border border-slate-600 text-slate-200 font-bold flex flex-col items-center justify-center transition shadow cursor-pointer"
-              title="Walk East (D / Right)"
-            >
-              <ArrowRight className="w-4 h-4" />
-              <span className="text-[9px] -mt-0.5 font-mono">D</span>
-            </button>
-          </div>
-        </div>
+      {/* 4. TOUCH CONTROLS FOR MOBILE (Hidden on desktop) */}
+      <div className="absolute bottom-6 left-4 z-[400] pointer-events-auto block md:hidden">
+        <VirtualJoystick 
+          onMove={moveTrainer} 
+          speedMultiplier={activeVehicleOption.speedMultiplier}
+        />
       </div>
 
-      {/* 4. GOOGLE MAPS STYLE FLOATING CONTROLS (RIGHT-HAND SIDE) */}
+      {/* 5. GOOGLE MAPS STYLE FLOATING CONTROLS (RIGHT-HAND SIDE) */}
       <aside aria-label="Map Controls" className="absolute bottom-6 right-4 z-[400] flex flex-col gap-2 pointer-events-auto">
         
         {/* Street / Satellite Toggle */}
@@ -773,6 +781,19 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
           <Crosshair className="w-5 h-5" />
         </button>
 
+        {/* Quick Settings Button (Mini-Map HUD, Audio, Display) */}
+        <button
+          id="map-floating-settings-btn"
+          onClick={() => {
+            soundEffects.playSelect();
+            setShowSettingsModal(true);
+          }}
+          className="w-10 h-10 rounded-xl bg-slate-900/95 border border-slate-700/80 hover:border-sky-400 hover:bg-slate-800 text-slate-200 hover:text-sky-300 shadow-xl flex items-center justify-center transition cursor-pointer"
+          title="Game Settings (Mini-Map & Audio)"
+        >
+          <SettingsIcon className="w-4 h-4" />
+        </button>
+
         {/* Zoom In & Out Stack (Zoom range constrained to 14-18) */}
         <div className="flex flex-col rounded-xl overflow-hidden border border-slate-700/80 bg-slate-900/95 shadow-xl">
           <button
@@ -798,15 +819,26 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
         </div>
       </aside>
 
-      {/* 5. INSTRUCTION BANNER */}
-      <footer className="absolute bottom-4 left-44 right-16 sm:right-auto z-[390] pointer-events-none hidden md:block">
+      {/* 6. INSTRUCTION BANNER */}
+      <footer className="absolute bottom-4 left-4 right-16 sm:right-auto z-[390] pointer-events-none hidden md:block">
         <div className="pointer-events-auto max-w-sm p-3 rounded-xl bg-slate-900/90 backdrop-blur-md border border-slate-700 text-slate-200 text-xs shadow-xl flex items-start gap-2.5">
           <HelpCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-          <div>
-            <span className="font-semibold text-white">Controls:</span> Press <strong>W, A, S, D</strong> or Arrow keys to steer your <strong>{activeVehicleOption.name}</strong>. Click monsters or stations on the road!
+          <div className="leading-relaxed">
+            <span className="font-semibold text-white">Controls:</span> Walk using <strong>W, A, S, D</strong> or <strong>Arrow keys</strong> on your keyboard. Click monsters or stations on the road to interact!
           </div>
         </div>
       </footer>
+
+      {/* 7. SETTINGS MODAL (Toggles Real-Time Mini-Map & Sound) */}
+      {showSettingsModal && (
+        <SettingsModal
+          showMiniMap={showMiniMap}
+          onToggleMiniMap={handleToggleMiniMap}
+          isMuted={isMuted}
+          onToggleMute={onToggleMute}
+          onClose={() => setShowSettingsModal(false)}
+        />
+      )}
     </div>
   );
 };

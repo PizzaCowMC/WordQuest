@@ -10,6 +10,8 @@ import { CityLessonModal } from './components/CityLessonModal';
 import { TransitStationModal } from './components/TransitStationModal';
 import { PhoneModal } from './components/PhoneModal';
 import { ResetConfirmModal } from './components/ResetConfirmModal';
+import { SaveSystemModal } from './components/SaveSystemModal';
+import { DailyRewardModal } from './components/DailyRewardModal';
 import { toggleSound, isSoundEnabled, soundEffects } from './utils/audio';
 
 const STORAGE_KEY = 'wordquest_student_profile';
@@ -44,11 +46,36 @@ export default function App() {
   const [showLessonGuideModal, setShowLessonGuideModal] = useState<boolean>(false);
   const [showTransitModal, setShowTransitModal] = useState<boolean>(false);
   const [showPhoneModal, setShowPhoneModal] = useState<boolean>(false);
+  const [showSaveModal, setShowSaveModal] = useState<boolean>(false);
+  const [showDailyRewardModal, setShowDailyRewardModal] = useState<boolean>(false);
   const [selectedStation, setSelectedStation] = useState<TransitStation | null>(null);
+  const [fastTravelTarget, setFastTravelTarget] = useState<TransitStation | null>(null);
   const [showResetModal, setShowResetModal] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(!isSoundEnabled());
+  
+  // Real-time Mini-Map HUD state (Off by default as requested by user)
+  const [showMiniMap, setShowMiniMap] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('wordquest_minimap_enabled');
+      return saved !== null ? saved === 'true' : false; // Default: false (OFF)
+    } catch {
+      return false;
+    }
+  });
 
-  // Derive current & next city along the 12-city global route
+  const handleToggleMiniMap = () => {
+    setShowMiniMap(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('wordquest_minimap_enabled', String(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
+  // Derive current & next city along the 26-city global route
   const currentCity = allCities[currentCityIndex] || allCities[0];
   const nextCityIndex = (currentCityIndex + 1) % allCities.length;
   const secondCity = allCities[nextCityIndex];
@@ -66,6 +93,13 @@ export default function App() {
       }
     }
   }, [student, currentCityIndex]);
+
+  // Ensure trainer walks on foot (no car driving)
+  useEffect(() => {
+    if (student && student.activeVehicle !== 'walk') {
+      setStudent(prev => prev ? ({ ...prev, activeVehicle: 'walk' }) : null);
+    }
+  }, [student?.activeVehicle]);
 
   // Check if all monsters in current city are defeated and trigger flight
   useEffect(() => {
@@ -100,10 +134,45 @@ export default function App() {
       currentCityIndex: 0,
       visitedCities: [currentCity.id],
       unlockedVehicles: ['walk', 'bicycle'],
-      purchasedTickets: []
+      purchasedTickets: [],
+      dailyStreak: 0,
+      lastDailyRewardDate: ''
     };
     setCurrentCityIndex(0);
     setStudent(newStudent);
+  };
+
+  // Daily login reward check: prompts on first login of each day
+  useEffect(() => {
+    if (!student) return;
+    const todayStr = new Date().toLocaleDateString('en-CA');
+    if (student.lastDailyRewardDate !== todayStr) {
+      // First time logging in today -> grant/prompt daily bonus
+      const timer = setTimeout(() => {
+        setShowDailyRewardModal(true);
+      }, 700);
+      return () => clearTimeout(timer);
+    }
+  }, [student?.name]);
+
+  // Claim Daily Reward Handler
+  const handleClaimDailyReward = (bonusCoins: number, bonusXp: number, newStreak: number, dateStr: string) => {
+    setStudent(prev => {
+      if (!prev) return null;
+      const updated: StudentProfile = {
+        ...prev,
+        coins: prev.coins + bonusCoins,
+        xp: prev.xp + bonusXp,
+        dailyStreak: newStreak,
+        lastDailyRewardDate: dateStr
+      };
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      } catch (e) {
+        console.error(e);
+      }
+      return updated;
+    });
   };
 
   // Reset Button logic - clears storage and resets student to null so TrainerSetupModal shows
@@ -228,7 +297,9 @@ export default function App() {
   // Fast Travel between stations in city
   const handleFastTravelToStation = (station: TransitStation) => {
     soundEffects.playSelect();
-    // We can update student's location or close modal
+    soundEffects.playVictoryFanfare();
+    setFastTravelTarget({ ...station });
+    setSelectedStation(station);
     setShowTransitModal(false);
   };
 
@@ -259,16 +330,21 @@ export default function App() {
           totalCities={allCities.length}
           student={student}
           activeMonster={activeBattleMonster}
+          fastTravelTarget={fastTravelTarget}
           onSelectMonster={handleSelectMonster}
           onOpenFieldGuide={() => setShowFieldGuideModal(true)}
           onOpenFlight={() => setShowFlightModal(true)}
           onOpenLessonGuide={() => setShowLessonGuideModal(true)}
           onOpenTransitHub={handleOpenTransitHub}
           onOpenPhone={() => setShowPhoneModal(true)}
+          onOpenSaveSystem={() => setShowSaveModal(true)}
+          onOpenDailyReward={() => setShowDailyRewardModal(true)}
           onSelectVehicle={handleSelectVehicle}
           onResetClick={() => setShowResetModal(true)}
           isMuted={isMuted}
           onToggleMute={handleToggleMute}
+          showMiniMap={showMiniMap}
+          onToggleMiniMap={handleToggleMiniMap}
         />
       )}
 
@@ -310,17 +386,20 @@ export default function App() {
           city={currentCity}
           cityIndex={currentCityIndex}
           totalCities={allCities.length}
+          defeatedMonsterIds={student.defeatedMonsterIds}
+          onStartLessonBattle={(monster) => {
+            setShowLessonGuideModal(false);
+            handleSelectMonster(monster);
+          }}
           onClose={() => setShowLessonGuideModal(false)}
         />
       )}
 
-      {/* 7. TRANSIT HUB & VEHICLE SELECTOR MODAL */}
+      {/* 7. CITY EXPRESS LINES RAPID TRANSIT MODAL */}
       {showTransitModal && student && (
         <TransitStationModal
           station={selectedStation}
           currentCity={currentCity}
-          activeVehicle={student.activeVehicle || 'walk'}
-          onSelectVehicle={handleSelectVehicle}
           onFastTravelToStation={handleFastTravelToStation}
           onClose={() => setShowTransitModal(false)}
         />
@@ -343,10 +422,52 @@ export default function App() {
             setShowPhoneModal(false);
             setShowLessonGuideModal(true);
           }}
+          onOpenSaveSystem={() => {
+            setShowPhoneModal(false);
+            setShowSaveModal(true);
+          }}
+          onOpenDailyReward={() => {
+            setShowPhoneModal(false);
+            setShowDailyRewardModal(true);
+          }}
+          isMuted={isMuted}
+          onToggleMute={handleToggleMute}
+          showMiniMap={showMiniMap}
+          onToggleMiniMap={handleToggleMiniMap}
         />
       )}
 
-      {/* 9. RESET CONFIRMATION MODAL */}
+      {/* 9. ADVENTURE SAVE SYSTEM MODAL (Save Slots, Quick Save, JSON Export/Import) */}
+      {showSaveModal && student && (
+        <SaveSystemModal
+          student={student}
+          currentCity={currentCity}
+          cityIndex={currentCityIndex}
+          totalCities={allCities.length}
+          onLoadProfile={(loadedProfile, loadedCityIndex) => {
+            setStudent(loadedProfile);
+            setCurrentCityIndex(loadedCityIndex);
+            setActiveBattleMonster(null);
+            setShowSaveModal(false);
+          }}
+          onClose={() => setShowSaveModal(false)}
+        />
+      )}
+
+      {/* 10. DAILY LOGIN REWARDS & STREAK MODAL */}
+      {showDailyRewardModal && student && (
+        <DailyRewardModal
+          student={student}
+          onClaimReward={handleClaimDailyReward}
+          onOpenLessonGuide={() => {
+            setShowDailyRewardModal(false);
+            setShowLessonGuideModal(true);
+          }}
+          onClose={() => setShowDailyRewardModal(false)}
+        />
+      )}
+
+      {/* 11. RESET CONFIRMATION MODAL */}
       {showResetModal && (
         <ResetConfirmModal
           onConfirm={handleConfirmReset}

@@ -23,7 +23,9 @@ import {
   MapPin,
   Volume2,
   VolumeX,
-  Smartphone
+  Smartphone,
+  Settings as SettingsIcon,
+  Map as MapIcon
 } from 'lucide-react';
 
 interface PhoneModalProps {
@@ -35,12 +37,16 @@ interface PhoneModalProps {
   onFastTravelToStation?: (station: TransitStation) => void;
   onOpenFieldGuide?: () => void;
   onOpenLessonGuide?: () => void;
+  onOpenSaveSystem?: () => void;
+  onOpenDailyReward?: () => void;
   onClose: () => void;
   isMuted?: boolean;
   onToggleMute?: () => void;
+  showMiniMap?: boolean;
+  onToggleMiniMap?: () => void;
 }
 
-type PhoneApp = 'home' | 'ride' | 'tickets' | 'wardrobe' | 'grammar' | 'radar' | 'radio';
+type PhoneApp = 'home' | 'ride' | 'tickets' | 'wardrobe' | 'grammar' | 'radar' | 'radio' | 'settings';
 
 export const PhoneModal: React.FC<PhoneModalProps> = ({
   student,
@@ -51,9 +57,13 @@ export const PhoneModal: React.FC<PhoneModalProps> = ({
   onFastTravelToStation,
   onOpenFieldGuide,
   onOpenLessonGuide,
+  onOpenSaveSystem,
+  onOpenDailyReward,
   onClose,
   isMuted = false,
-  onToggleMute
+  onToggleMute,
+  showMiniMap = false,
+  onToggleMiniMap
 }) => {
   const [activeApp, setActiveApp] = useState<PhoneApp>('home');
   const [dispatchStatus, setDispatchStatus] = useState<string | null>(null);
@@ -278,22 +288,46 @@ export const PhoneModal: React.FC<PhoneModalProps> = ({
                     <span className="text-[9px] text-slate-400 -mt-1">New Models</span>
                   </button>
 
-                  {/* App 4: Grammar Guide */}
+                  {/* App 4: English Lesson & Grammar Guide */}
                   <button
                     onClick={() => {
                       soundEffects.playSelect();
-                      setActiveApp('grammar');
+                      if (onOpenLessonGuide) {
+                        onClose();
+                        onOpenLessonGuide();
+                      } else {
+                        setActiveApp('grammar');
+                      }
                     }}
                     className="flex flex-col items-center gap-1.5 p-2.5 rounded-2xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700 hover:border-emerald-400 transition cursor-pointer group"
                   >
                     <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center text-2xl shadow group-hover:scale-110 transition">
                       📖
                     </div>
-                    <span className="text-xs font-bold text-slate-200">GrammarDex</span>
+                    <span className="text-xs font-bold text-slate-200">English Lesson</span>
                     <span className="text-[9px] text-slate-400 -mt-1">City Rules</span>
                   </button>
 
-                  {/* App 5: Radar GPS */}
+                  {/* App 5: Daily Login Bonus */}
+                  <button
+                    id="phone-open-daily-bonus-app-btn"
+                    onClick={() => {
+                      soundEffects.playSelect();
+                      if (onOpenDailyReward) {
+                        onClose();
+                        onOpenDailyReward();
+                      }
+                    }}
+                    className="flex flex-col items-center gap-1.5 p-2.5 rounded-2xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700 hover:border-amber-400 transition cursor-pointer group"
+                  >
+                    <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center text-2xl shadow group-hover:scale-110 transition">
+                      🎁
+                    </div>
+                    <span className="text-xs font-bold text-slate-200">Daily Bonus</span>
+                    <span className="text-[9px] text-slate-400 -mt-1">Coins & XP</span>
+                  </button>
+
+                  {/* App 6: Radar GPS */}
                   <button
                     onClick={() => {
                       soundEffects.playSelect();
@@ -308,7 +342,25 @@ export const PhoneModal: React.FC<PhoneModalProps> = ({
                     <span className="text-[9px] text-slate-400 -mt-1">Monsters</span>
                   </button>
 
-                  {/* App 6: Radio / Sounds */}
+                  {/* App 7: Save Game / Multi-Slot Manager */}
+                  <button
+                    onClick={() => {
+                      soundEffects.playSelect();
+                      if (onOpenSaveSystem) {
+                        onClose();
+                        onOpenSaveSystem();
+                      }
+                    }}
+                    className="flex flex-col items-center gap-1.5 p-2.5 rounded-2xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700 hover:border-blue-400 transition cursor-pointer group"
+                  >
+                    <div className="w-12 h-12 rounded-2xl bg-blue-500/20 border border-blue-500/40 text-blue-400 flex items-center justify-center text-2xl shadow group-hover:scale-110 transition">
+                      💾
+                    </div>
+                    <span className="text-xs font-bold text-slate-200">Save Game</span>
+                    <span className="text-[9px] text-slate-400 -mt-1">Slots & Backup</span>
+                  </button>
+
+                  {/* App 8: Radio / Sounds */}
                   <button
                     onClick={() => {
                       soundEffects.playSelect();
@@ -320,7 +372,23 @@ export const PhoneModal: React.FC<PhoneModalProps> = ({
                       📻
                     </div>
                     <span className="text-xs font-bold text-slate-200">Radio FX</span>
-                    <span className="text-[9px] text-slate-400 -mt-1">Audio Audio</span>
+                    <span className="text-[9px] text-slate-400 -mt-1">Audio Track</span>
+                  </button>
+
+                  {/* App 9: Settings (Mini-Map, Audio, Controls) */}
+                  <button
+                    id="phone-open-settings-app-btn"
+                    onClick={() => {
+                      soundEffects.playSelect();
+                      setActiveApp('settings');
+                    }}
+                    className="flex flex-col items-center gap-1.5 p-2.5 rounded-2xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700 hover:border-sky-400 transition cursor-pointer group"
+                  >
+                    <div className="w-12 h-12 rounded-2xl bg-sky-500/20 border border-sky-500/40 text-sky-400 flex items-center justify-center text-2xl shadow group-hover:scale-110 transition">
+                      ⚙️
+                    </div>
+                    <span className="text-xs font-bold text-slate-200">Settings</span>
+                    <span className="text-[9px] text-slate-400 -mt-1">Controls</span>
                   </button>
 
                 </div>
@@ -798,6 +866,103 @@ export const PhoneModal: React.FC<PhoneModalProps> = ({
               >
                 <span>✨ Test English Chime</span>
               </button>
+            </div>
+          )}
+
+          {/* 8. SETTINGS APP (MINI-MAP & AUDIO PREFERENCES) */}
+          {activeApp === 'settings' && (
+            <div className="space-y-4 animate-in fade-in duration-150">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                <button
+                  onClick={() => setActiveApp('home')}
+                  className="flex items-center gap-1 text-xs text-sky-400 font-bold hover:underline cursor-pointer"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  <span>Home</span>
+                </button>
+                <h3 className="text-sm font-black text-white">Game Settings</h3>
+                <span className="text-[10px] text-sky-300">Preferences</span>
+              </div>
+
+              {/* Setting 1: Mini-Map Radar Toggle */}
+              <div className="p-3.5 rounded-2xl bg-slate-850 border border-slate-750 flex items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <MapIcon className="w-3.5 h-3.5 text-sky-400" />
+                    <span className="text-xs font-bold text-white">District Mini-Map</span>
+                    <span className="text-[8px] px-1.5 py-0.2 rounded-full bg-slate-700 text-slate-300">HUD</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 leading-snug">
+                    Real-time radar overlay with GPS player cone and monster locations.
+                  </p>
+                  <div className="text-[9px] text-slate-500 italic">
+                    (Default: OFF)
+                  </div>
+                </div>
+
+                <button
+                  id="phone-settings-toggle-minimap"
+                  onClick={() => {
+                    soundEffects.playSelect();
+                    if (onToggleMiniMap) onToggleMiniMap();
+                  }}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    showMiniMap ? 'bg-sky-500' : 'bg-slate-700'
+                  }`}
+                  role="switch"
+                  aria-checked={showMiniMap}
+                  title={showMiniMap ? 'Disable Mini-Map' : 'Enable Mini-Map'}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                      showMiniMap ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* Setting 2: Sound Effects Toggle */}
+              <div className="p-3.5 rounded-2xl bg-slate-850 border border-slate-750 flex items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-1.5">
+                    {isMuted ? (
+                      <VolumeX className="w-3.5 h-3.5 text-rose-400" />
+                    ) : (
+                      <Volume2 className="w-3.5 h-3.5 text-amber-400" />
+                    )}
+                    <span className="text-xs font-bold text-white">Sound Effects</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 leading-snug">
+                    Synthesized chiptune sounds for battles, horns, and level ups.
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => {
+                    soundEffects.playSelect();
+                    if (onToggleMute) onToggleMute();
+                  }}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    !isMuted ? 'bg-amber-500' : 'bg-slate-700'
+                  }`}
+                  role="switch"
+                  aria-checked={!isMuted}
+                  title={isMuted ? 'Unmute Audio' : 'Mute Audio'}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                      !isMuted ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* Setting 3: Quick Tip */}
+              <div className="p-3 rounded-2xl bg-sky-950/40 border border-sky-800/40 text-[11px] text-sky-200 leading-relaxed">
+                💡 <strong>Radar Overlay</strong> can also be toggled from the top navigation bar or the map's <strong>Settings</strong> button.
+              </div>
             </div>
           )}
 

@@ -199,27 +199,127 @@ export const CITY_TRANSIT_STATIONS: Record<string, TransitStation[]> = {
       lines: ['Jubilee Line', 'District Line', 'Circle Line'],
       icon: '🚇',
       speedMultiplier: 3.5,
-      description: 'Step into the iconic London Tube to travel rapidly across Westminster!'
+      description: 'Step into the iconic London Tube to travel rapidly across Westminster & Big Ben!'
     },
     {
       id: 'lon-stn-2',
       name: 'Waterloo Rail Terminal',
       position: [51.5031, -0.1132],
       type: 'train',
-      lines: ['South Western Express', 'Waterloo & City'],
+      lines: ['South Western Express', 'Waterloo & City Line', 'Bakerloo Line', 'Northern Line'],
       icon: '🚅',
       speedMultiplier: 5.0,
-      description: 'Major historic British rail terminal offering bullet speed across the Thames!'
+      description: 'Britain\'s busiest railway palace offering express bullet speed across the River Thames!'
     },
     {
       id: 'lon-stn-3',
-      name: 'Piccadilly Black Cab Stand',
-      position: [51.5098, -0.1345],
-      type: 'taxi',
-      lines: ['West End Cab Fleet'],
-      icon: '🚕',
-      speedMultiplier: 2.6,
-      description: 'Hail an authentic London Black Cab to speed down Regent Street!'
+      name: 'Piccadilly Circus Station',
+      position: [51.5101, -0.1345],
+      type: 'subway',
+      lines: ['Piccadilly Line', 'Bakerloo Line'],
+      icon: '🚇',
+      speedMultiplier: 3.5,
+      description: 'Subway hub beneath London\'s glittering neon billboards in the heart of the West End!'
+    },
+    {
+      id: 'lon-stn-4',
+      name: 'Charing Cross Station',
+      position: [51.5083, -0.1248],
+      type: 'train',
+      lines: ['Northern Line', 'Bakerloo Line', 'Southeastern Rail'],
+      icon: '🚅',
+      speedMultiplier: 4.5,
+      description: 'Direct rail terminus steps away from Trafalgar Square and the National Gallery.'
+    },
+    {
+      id: 'lon-stn-5',
+      name: 'Covent Garden Station',
+      position: [51.5129, -0.1243],
+      type: 'subway',
+      lines: ['Piccadilly Line'],
+      icon: '🚇',
+      speedMultiplier: 3.5,
+      description: 'Historic piazza station famous for street performers, markets, and Royal Opera House.'
+    },
+    {
+      id: 'lon-stn-6',
+      name: 'Leicester Square Station',
+      position: [51.5114, -0.1283],
+      type: 'subway',
+      lines: ['Northern Line', 'Piccadilly Line'],
+      icon: '🚇',
+      speedMultiplier: 3.5,
+      description: 'Bustling entertainment crossroads connecting Soho, Chinatown, and premier movie theaters.'
+    },
+    {
+      id: 'lon-stn-7',
+      name: 'Oxford Circus Station',
+      position: [51.5152, -0.1419],
+      type: 'subway',
+      lines: ['Central Line', 'Victoria Line', 'Bakerloo Line'],
+      icon: '🚇',
+      speedMultiplier: 3.8,
+      description: 'The premier shopping junction connecting Oxford Street and Regent Street avenues.'
+    },
+    {
+      id: 'lon-stn-8',
+      name: 'London Bridge Station',
+      position: [51.5048, -0.0860],
+      type: 'train',
+      lines: ['Jubilee Line', 'Northern Line', 'Thameslink', 'Southern Rail'],
+      icon: '🚅',
+      speedMultiplier: 4.8,
+      description: 'Ultra-modern glass terminal beside The Shard and historic Borough Market.'
+    },
+    {
+      id: 'lon-stn-9',
+      name: 'Tower Hill & Bridge Station',
+      position: [51.5098, -0.0766],
+      type: 'subway',
+      lines: ['District Line', 'Circle Line', 'DLR Network'],
+      icon: '🚇',
+      speedMultiplier: 3.5,
+      description: 'Direct station for the historic Tower of London and the iconic glass walkways of Tower Bridge.'
+    },
+    {
+      id: 'lon-stn-10',
+      name: 'King\'s Cross St. Pancras International',
+      position: [51.5308, -0.1238],
+      type: 'train',
+      lines: ['Victoria Line', 'Piccadilly Line', 'Northern Line', 'Eurostar Express'],
+      icon: '🚅',
+      speedMultiplier: 5.5,
+      description: 'Legendary grand transit palace linking national express trains, Tube lines, and Eurostar.'
+    },
+    {
+      id: 'lon-stn-11',
+      name: 'Victoria Rail & Underground Terminal',
+      position: [51.4952, -0.1439],
+      type: 'train',
+      lines: ['Victoria Line', 'District Line', 'Circle Line', 'Gatwick Express'],
+      icon: '🚅',
+      speedMultiplier: 4.8,
+      description: 'Major South-West gateway connecting Buckingham Palace, St. James\'s Park, and airport rail.'
+    },
+    {
+      id: 'lon-stn-12',
+      name: 'St. Paul\'s Cathedral Station',
+      position: [51.5149, -0.0975],
+      type: 'subway',
+      lines: ['Central Line'],
+      icon: '🚇',
+      speedMultiplier: 3.5,
+      description: 'Direct station serving Sir Christopher Wren\'s dome and the pedestrian Millennium Bridge.'
+    },
+    {
+      id: 'lon-stn-13',
+      name: 'Green Park Station',
+      position: [51.5067, -0.1428],
+      type: 'subway',
+      lines: ['Jubilee Line', 'Piccadilly Line', 'Victoria Line'],
+      icon: '🚇',
+      speedMultiplier: 3.6,
+      description: 'Scenic royal park interchange connecting Mayfair, Piccadilly, and Buckingham Palace gardens.'
     }
   ],
   tokyo: [
@@ -648,7 +748,7 @@ export const SEOUL_CITY: CityData = {
   zoom: 14,
   lessonTitle: CITY_LESSONS_INFO.seoul.title,
   lessonGrammarRule: CITY_LESSONS_INFO.seoul.grammarRule,
-  welcomeMessage: 'Welcome to Seoul (City 11/12)! Navigate between modern skyscrapers and historic palaces. Defeat 3 tech and neon monsters to unlock Berlin!',
+  welcomeMessage: 'Welcome to Seoul (City 11/26)! Navigate between modern skyscrapers and historic palaces. Defeat 3 tech and neon monsters to unlock Berlin!',
   landmarks: ['N Seoul Tower', 'Gyeongbokgung Palace', 'Dongdaemun Design Plaza', 'Gangnam Blvd'],
   stations: CITY_TRANSIT_STATIONS.seoul,
   monsters: [
@@ -808,7 +908,7 @@ export const BERLIN_CITY: CityData = {
   zoom: 14,
   lessonTitle: CITY_LESSONS_INFO.berlin.title,
   lessonGrammarRule: CITY_LESSONS_INFO.berlin.grammarRule,
-  welcomeMessage: 'Welcome to Berlin (City 12/12)! Stand near the historic Brandenburg Gate and Museum Island. Defeat all 3 grand titan monsters to achieve World Champion status!',
+  welcomeMessage: 'Welcome to Berlin (City 12/26)! Stand near the historic Brandenburg Gate and Museum Island. Defeat all 3 grand titan monsters to unlock Flight to Toronto!',
   landmarks: ['Brandenburg Gate', 'Reichstag Building', 'Museum Island', 'TV Tower (Fernsehturm)'],
   stations: CITY_TRANSIT_STATIONS.berlin,
   monsters: [
