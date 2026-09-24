@@ -17,10 +17,8 @@ import {
   ArrowDown,
   ArrowLeft,
   ArrowRight,
-  RotateCcw,
   Navigation,
   Smartphone,
-  Save,
   Map as MapIcon,
   Settings as SettingsIcon,
   Gift,
@@ -30,6 +28,7 @@ import { CityMiniMapOverlay } from './CityMiniMapOverlay';
 import { VirtualJoystick } from './VirtualJoystick';
 import { SettingsModal } from './SettingsModal';
 import { CityWeatherOverlay, CityWeatherWidget } from './CityWeatherOverlay';
+import { getRandomWeatherForTimestamp } from '../utils/weatherUtils';
 
 interface CityMapViewProps {
   currentCity: CityData;
@@ -41,7 +40,6 @@ interface CityMapViewProps {
   onSelectMonster: (monster: Monster) => void;
   onOpenFieldGuide: () => void;
   onOpenFlight: () => void;
-  onOpenLessonGuide: () => void;
   onOpenTransitHub: (station?: TransitStation) => void;
   onOpenPhone: () => void;
   onOpenSaveSystem?: () => void;
@@ -53,6 +51,9 @@ interface CityMapViewProps {
   showMiniMap?: boolean;
   onToggleMiniMap?: () => void;
   fastTravelTarget?: TransitStation | null;
+  currentWeather?: WeatherCondition;
+  tempUnit?: 'C' | 'F';
+  onToggleTempUnit?: (unit: 'C' | 'F') => void;
 }
 
 // Helper to bound player and map strictly inside the city district
@@ -88,7 +89,6 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
   onSelectMonster,
   onOpenFieldGuide,
   onOpenFlight,
-  onOpenLessonGuide,
   onOpenTransitHub,
   onOpenPhone,
   onOpenSaveSystem,
@@ -99,7 +99,10 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
   onToggleMute,
   showMiniMap: propShowMiniMap,
   onToggleMiniMap: propOnToggleMiniMap,
-  fastTravelTarget
+  fastTravelTarget,
+  currentWeather: propWeather,
+  tempUnit = 'C',
+  onToggleTempUnit
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -129,13 +132,27 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
     }
   }, [fastTravelTarget]);
 
-  // Dynamic Weather System (Cycles Sunny -> Rainy -> Snowy every 15 min)
-  const [manualWeather, setManualWeather] = useState<WeatherCondition | null>(null);
-  const [currentWeather, setCurrentWeather] = useState<WeatherCondition>(() => {
-    const cycleIndex = Math.floor(Date.now() / (15 * 60 * 1000)) % 3;
-    return (['sunny', 'rainy', 'snowy'] as WeatherCondition[])[cycleIndex];
+  // Dynamic Random Weather System (Random weather changes every 15 min, no manual override)
+  const [internalWeather, setInternalWeather] = useState<WeatherCondition>(() => {
+    return getRandomWeatherForTimestamp(Date.now());
   });
-  const effectiveWeather = manualWeather || currentWeather;
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const next = getRandomWeatherForTimestamp(Date.now());
+      setInternalWeather(prev => (prev !== next ? next : prev));
+    }, 5000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const effectiveWeather = propWeather || internalWeather;
+
+  // Invalidate map size whenever weather changes to guarantee Leaflet raster tiles never vanish
+  useEffect(() => {
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.invalidateSize();
+    }
+  }, [effectiveWeather]);
   
   // Local mini-map radar overlay fallback (OFF by default as requested by user)
   const [localShowMiniMap, setLocalShowMiniMap] = useState<boolean>(() => {
@@ -569,11 +586,11 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
             </div>
           </div>
 
-          {/* Dynamic Weather System Widget (15-Minute Cycle: Sunny -> Rainy -> Snowy) */}
+          {/* Dynamic Random Weather System Widget (Shifts randomly every 15 min, no manual override) */}
           <CityWeatherWidget
             currentWeather={effectiveWeather}
-            onSelectWeather={setManualWeather}
-            isManualOverride={manualWeather !== null}
+            tempUnit={tempUnit}
+            onOpenPhoneWeather={onOpenPhone}
           />
 
           {/* Daily Reward Bonus Button */}
@@ -661,20 +678,7 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
             <span className="hidden lg:inline">Guide</span>
           </button>
 
-          {/* Save System Button */}
-          {onOpenSaveSystem && (
-            <button
-              id="open-save-system-btn"
-              onClick={onOpenSaveSystem}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/40 text-blue-300 hover:text-white text-xs font-bold shadow-lg transition cursor-pointer"
-              title="Save Adventure, Slots & Export / Import Files"
-            >
-              <Save className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Save</span>
-            </button>
-          )}
-
-          {/* Settings Button (Opens Settings modal to toggle Mini-Map, Sound, etc.) */}
+          {/* Settings Button (Opens Settings modal to toggle Mini-Map, Sound, Save System & Reset) */}
           <button
             id="toggle-settings-btn"
             onClick={() => {
@@ -682,40 +686,23 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
               setShowSettingsModal(true);
             }}
             className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-2xl bg-slate-900/95 border border-slate-700 hover:border-sky-400 text-slate-300 hover:text-white text-xs font-bold shadow-lg transition cursor-pointer"
-            title="Settings (Mini-Map, Sounds & Controls)"
+            title="Settings (Save Game, Reset, Mini-Map & Audio)"
           >
             <SettingsIcon className="w-3.5 h-3.5 text-sky-400" />
             <span className="hidden sm:inline">Settings</span>
           </button>
-
-          {/* Reset Button (Requested by User) */}
-          <button
-            onClick={onResetClick}
-            className="flex items-center gap-1 px-2.5 py-2 rounded-2xl bg-red-500/15 hover:bg-red-500/30 border border-red-500/40 text-red-300 hover:text-red-200 text-xs font-bold transition cursor-pointer"
-            title="Reset Adventure & Redo Character Setup"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Reset</span>
-          </button>
         </div>
       </header>
 
-      {/* 2. LEAFLET MAP CANVAS (NO click-to-walk on map; only clicking monsters triggers battle) */}
+      {/* 2. LEAFLET MAP CANVAS CONTAINER (Pristine Leaflet div, no CSS filters so map never disappears) */}
       <div 
         ref={mapContainerRef} 
-        className={`w-full h-full z-0 cursor-default transition-all duration-1000 ${
-          effectiveWeather === 'rainy'
-            ? 'brightness-[0.88] saturate-[0.85] contrast-[1.04]'
-            : effectiveWeather === 'snowy'
-            ? 'brightness-[1.04] saturate-[0.78] contrast-[0.98]'
-            : 'brightness-[1.02] saturate-[1.10]'
-        }`}
+        className="w-full h-full z-0 cursor-default"
       />
 
-      {/* 2b. DYNAMIC WEATHER AMBIANCE & PARTICLE OVERLAY (Sunny, Rainy, Snowy 15-min cycle) */}
+      {/* 2b. DYNAMIC WEATHER AMBIANCE & PARTICLE OVERLAY (Safe rendering, never causes map to vanish) */}
       <CityWeatherOverlay
-        manualWeather={manualWeather}
-        onWeatherChange={setCurrentWeather}
+        weather={effectiveWeather}
       />
 
       {/* 3. REAL-TIME MINI-MAP OVERLAY (RELATIVE TO CITY BOUNDARIES) */}
@@ -819,23 +806,31 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
         </div>
       </aside>
 
-      {/* 6. INSTRUCTION BANNER */}
-      <footer className="absolute bottom-4 left-4 right-16 sm:right-auto z-[390] pointer-events-none hidden md:block">
+      {/* 6. INSTRUCTION BANNER & VERSION TAG */}
+      <footer className="absolute bottom-4 left-4 right-16 sm:right-auto z-[390] pointer-events-none flex flex-col sm:flex-row items-start sm:items-center gap-2">
         <div className="pointer-events-auto max-w-sm p-3 rounded-xl bg-slate-900/90 backdrop-blur-md border border-slate-700 text-slate-200 text-xs shadow-xl flex items-start gap-2.5">
           <HelpCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
           <div className="leading-relaxed">
-            <span className="font-semibold text-white">Controls:</span> Walk using <strong>W, A, S, D</strong> or <strong>Arrow keys</strong> on your keyboard. Click monsters or stations on the road to interact!
+            <span className="font-semibold text-white">Controls:</span> Walk using <strong>W, A, S, D</strong> or <strong>Arrow keys</strong>. Click monsters or stations to interact!
           </div>
+        </div>
+        <div className="pointer-events-auto flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-900/80 backdrop-blur-sm border border-slate-800 text-[10px] font-mono text-slate-400 shadow">
+          <span>WordQuest</span>
+          <span className="text-sky-400 font-bold">v1.9.5</span>
         </div>
       </footer>
 
-      {/* 7. SETTINGS MODAL (Toggles Real-Time Mini-Map & Sound) */}
+      {/* 7. SETTINGS MODAL (Toggles Real-Time Mini-Map, Sound, Temperature Unit, Save System & Reset) */}
       {showSettingsModal && (
         <SettingsModal
           showMiniMap={showMiniMap}
           onToggleMiniMap={handleToggleMiniMap}
           isMuted={isMuted}
           onToggleMute={onToggleMute}
+          tempUnit={tempUnit}
+          onToggleTempUnit={onToggleTempUnit}
+          onOpenSaveSystem={onOpenSaveSystem}
+          onResetClick={onResetClick}
           onClose={() => setShowSettingsModal(false)}
         />
       )}

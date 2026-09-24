@@ -121,15 +121,29 @@ export interface StudentProfile {
   purchasedTickets?: string[];
   lastDailyRewardDate?: string; // YYYY-MM-DD
   dailyStreak?: number; // 1 to 7
+  tempUnit?: 'C' | 'F'; // Temperature display preference
 }
 
-export type WeatherCondition = 'sunny' | 'rainy' | 'snowy';
+export type WeatherCondition = 
+  | 'sunny' 
+  | 'cloudy' 
+  | 'rainy' 
+  | 'thunderstorm' 
+  | 'snowy' 
+  | 'foggy' 
+  | 'windy';
 
 export interface WeatherInfo {
   condition: WeatherCondition;
   label: string;
   icon: string;
   tempCelsius: number;
+  highCelsius: number;
+  lowCelsius: number;
+  humidity: number;
+  windSpeedKmh: number;
+  visibilityKm: number;
+  feelsLikeCelsius: number;
   description: string;
   ambianceEffect: string;
 }

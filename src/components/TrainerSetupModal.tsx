@@ -71,7 +71,10 @@ export const TrainerSetupModal: React.FC<TrainerSetupModalProps> = ({
         <div className="flex items-center justify-center gap-2 mb-2">
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-red-500/20 text-red-400 border border-red-500/30">
             <Sparkles className="w-3.5 h-3.5" />
-            12-City Global Monster English Quest
+            26-City Global Monster English Quest
+          </span>
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-800 text-sky-400 border border-slate-700">
+            v1.9.5
           </span>
         </div>
 

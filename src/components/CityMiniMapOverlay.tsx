@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import L from 'leaflet';
 import { CityData, Monster, TransitStation } from '../types';
-import { MapPin, Navigation, Maximize2, Minimize2, Eye, Compass } from 'lucide-react';
+import { Maximize2, Minimize2, Compass } from 'lucide-react';
+import { soundEffects } from '../utils/audio';
 
 interface CityMiniMapOverlayProps {
   currentCity: CityData;
@@ -20,39 +22,12 @@ export const CityMiniMapOverlay: React.FC<CityMiniMapOverlayProps> = ({
   onPanToLocation
 }) => {
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const miniMapRef = useRef<L.Map | null>(null);
+  const playerMarkerRef = useRef<L.Marker | null>(null);
+  const monsterMarkersRef = useRef<L.Marker[]>([]);
+  const stationMarkersRef = useRef<L.Marker[]>([]);
 
-  // Derive geographical bounding box of the city district
-  const allPoints: [number, number][] = [
-    currentCity.coordinates,
-    ...currentCity.monsters.map(m => m.position),
-    ...(currentCity.stations || []).map(s => s.position),
-    playerPosition
-  ];
-
-  const lats = allPoints.map(p => p[0]);
-  const lngs = allPoints.map(p => p[1]);
-  const minLat = Math.min(...lats) - 0.008;
-  const maxLat = Math.max(...lats) + 0.008;
-  const minLng = Math.min(...lngs) - 0.010;
-  const maxLng = Math.max(...lngs) + 0.010;
-
-  const latSpan = Math.max(maxLat - minLat, 0.0001);
-  const lngSpan = Math.max(maxLng - minLng, 0.0001);
-
-  // Convert (lat, lng) to percentage coords inside mini-map (0% to 100%)
-  // Note: latitude increases upward (top = maxLat), longitude increases rightward (right = maxLng)
-  const getPercentageCoords = (lat: number, lng: number): { topPct: number; leftPct: number } => {
-    const clampedLat = Math.max(minLat, Math.min(maxLat, lat));
-    const clampedLng = Math.max(minLng, Math.min(maxLng, lng));
-
-    const leftPct = ((clampedLng - minLng) / lngSpan) * 100;
-    const topPct = ((maxLat - clampedLat) / latSpan) * 100;
-    return { topPct, leftPct };
-  };
-
-  const playerPct = getPercentageCoords(playerPosition[0], playerPosition[1]);
-
-  // Rotations for player direction pointer
   const rotationAngles: Record<'N' | 'S' | 'E' | 'W', number> = {
     N: 0,
     E: 90,
@@ -60,156 +35,225 @@ export const CityMiniMapOverlay: React.FC<CityMiniMapOverlayProps> = ({
     W: 270
   };
 
+  // Initialize the mini Leaflet map with real OpenStreetMap roads
+  useEffect(() => {
+    if (!mapContainerRef.current) return;
+
+    const initialZoom = isExpanded ? 15 : 14;
+    const miniMap = L.map(mapContainerRef.current, {
+      center: playerPosition,
+      zoom: initialZoom,
+      zoomControl: false,
+      attributionControl: false,
+      dragging: true,
+      scrollWheelZoom: false,
+      doubleClickZoom: false,
+      touchZoom: false,
+      keyboard: false
+    });
+
+    // Real OpenStreetMap road tiles
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+      subdomains: ['a', 'b', 'c']
+    }).addTo(miniMap);
+
+    // Click on real road to pan main camera
+    miniMap.on('click', (e: L.LeafletMouseEvent) => {
+      if (onPanToLocation) {
+        soundEffects.playSelect();
+        onPanToLocation([e.latlng.lat, e.latlng.lng]);
+      }
+    });
+
+    // Player GPS Marker with direction cone
+    const playerIcon = L.divIcon({
+      className: 'custom-minimap-player-pin',
+      html: `
+        <div style="position: relative; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;">
+          <div style="position: absolute; inset: 0; border-radius: 9999px; background: rgba(56, 189, 248, 0.35); animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
+          <div style="transform: rotate(${rotationAngles[facingDirection]}deg); font-size: 16px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.8));">
+            ${activeVehicleIcon}
+          </div>
+          <div style="position: absolute; -top: 4px; width: 6px; height: 6px; background: #38bdf8; border-radius: 9999px; border: 1.5px solid white;"></div>
+        </div>
+      `,
+      iconSize: [28, 28],
+      iconAnchor: [14, 14]
+    });
+
+    const playerMarker = L.marker(playerPosition, { 
+      icon: playerIcon,
+      zIndexOffset: 1000 
+    }).addTo(miniMap);
+
+    miniMapRef.current = miniMap;
+    playerMarkerRef.current = playerMarker;
+
+    return () => {
+      miniMap.remove();
+      miniMapRef.current = null;
+    };
+  }, []); // Mount once
+
+  // Invalidate map size when expanded / collapsed
+  useEffect(() => {
+    if (!miniMapRef.current) return;
+    const timer = setTimeout(() => {
+      if (miniMapRef.current) {
+        miniMapRef.current.invalidateSize();
+        miniMapRef.current.setView(playerPosition, isExpanded ? 15 : 14);
+      }
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [isExpanded]);
+
+  // Update player marker position & heading
+  useEffect(() => {
+    if (!miniMapRef.current || !playerMarkerRef.current) return;
+
+    playerMarkerRef.current.setLatLng(playerPosition);
+
+    const playerIcon = L.divIcon({
+      className: 'custom-minimap-player-pin',
+      html: `
+        <div style="position: relative; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;">
+          <div style="position: absolute; inset: 0; border-radius: 9999px; background: rgba(56, 189, 248, 0.35); animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
+          <div style="transform: rotate(${rotationAngles[facingDirection]}deg); font-size: 16px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.8));">
+            ${activeVehicleIcon}
+          </div>
+          <div style="position: absolute; top: -2px; width: 6px; height: 6px; background: #38bdf8; border-radius: 9999px; border: 1.5px solid white;"></div>
+        </div>
+      `,
+      iconSize: [28, 28],
+      iconAnchor: [14, 14]
+    });
+
+    playerMarkerRef.current.setIcon(playerIcon);
+    miniMapRef.current.panTo(playerPosition, { animate: false });
+  }, [playerPosition, facingDirection, activeVehicleIcon]);
+
+  // Update Monsters on real roads
+  useEffect(() => {
+    if (!miniMapRef.current) return;
+    const miniMap = miniMapRef.current;
+
+    // Clear old markers
+    monsterMarkersRef.current.forEach(m => miniMap.removeLayer(m));
+    monsterMarkersRef.current = [];
+
+    // Add new markers
+    currentCity.monsters.forEach(monster => {
+      const isDefeated = defeatedMonsterIds.includes(monster.id);
+      const icon = L.divIcon({
+        className: 'custom-minimap-monster',
+        html: `
+          <div style="
+            width: ${isDefeated ? '8px' : '11px'}; 
+            height: ${isDefeated ? '8px' : '11px'}; 
+            border-radius: 9999px; 
+            background: ${isDefeated ? '#10b981' : '#f43f5e'}; 
+            border: 1.5px solid white; 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.6);
+            opacity: ${isDefeated ? 0.6 : 1.0};
+          "></div>
+        `,
+        iconSize: [11, 11],
+        iconAnchor: [5.5, 5.5]
+      });
+
+      const marker = L.marker(monster.position, { icon }).addTo(miniMap);
+      marker.bindTooltip(`${monster.name} ${isDefeated ? '✓' : '!'}`, { 
+        direction: 'top', 
+        offset: [0, -6],
+        className: 'text-[9px] font-bold px-1 py-0.5'
+      });
+      monsterMarkersRef.current.push(marker);
+    });
+  }, [currentCity, defeatedMonsterIds]);
+
+  // Update Transit Stations on real roads
+  useEffect(() => {
+    if (!miniMapRef.current) return;
+    const miniMap = miniMapRef.current;
+
+    stationMarkersRef.current.forEach(s => miniMap.removeLayer(s));
+    stationMarkersRef.current = [];
+
+    (currentCity.stations || []).forEach(station => {
+      const icon = L.divIcon({
+        className: 'custom-minimap-station',
+        html: `
+          <div style="
+            width: 10px; 
+            height: 10px; 
+            border-radius: 9999px; 
+            background: #0284c7; 
+            border: 1.5px solid white; 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.6);
+          "></div>
+        `,
+        iconSize: [10, 10],
+        iconAnchor: [5, 5]
+      });
+
+      const marker = L.marker(station.position, { icon }).addTo(miniMap);
+      marker.bindTooltip(`🚇 ${station.name}`, { 
+        direction: 'top', 
+        offset: [0, -6],
+        className: 'text-[9px] font-bold px-1 py-0.5'
+      });
+      stationMarkersRef.current.push(marker);
+    });
+  }, [currentCity]);
+
   return (
     <div
       id="city-mini-map-overlay"
       className="select-none pointer-events-auto transition-all duration-200"
     >
       <div
-        className={`rounded-2xl bg-slate-950/90 backdrop-blur-md border border-slate-700/80 shadow-2xl overflow-hidden transition-all duration-200 ${
-          isExpanded ? 'w-64 sm:w-72' : 'w-44 sm:w-48'
+        className={`rounded-2xl bg-slate-950/95 backdrop-blur-md border border-slate-700/80 shadow-2xl overflow-hidden transition-all duration-200 ${
+          isExpanded ? 'w-64 sm:w-72' : 'w-48 sm:w-52'
         }`}
       >
         {/* Header Bar */}
-        <div className="px-2.5 py-1.5 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between">
+        <div className="px-2.5 py-1.5 bg-slate-900/95 border-b border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-1.5">
-            <Compass className="w-3.5 h-3.5 text-sky-400 animate-spin-slow" />
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-200 truncate max-w-[110px] sm:max-w-[130px]">
+            <Compass className="w-3.5 h-3.5 text-sky-400 animate-spin-slow shrink-0" />
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-200 truncate max-w-[120px] sm:max-w-[140px]">
               {currentCity.name} Radar
             </span>
           </div>
 
           <button
-            onClick={() => setIsExpanded(prev => !prev)}
+            onClick={() => {
+              soundEffects.playSelect();
+              setIsExpanded(prev => !prev);
+            }}
             className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition cursor-pointer"
             title={isExpanded ? 'Minimize Radar' : 'Expand Radar'}
           >
-            {isExpanded ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3" />}
+            {isExpanded ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3 text-sky-400" />}
           </button>
         </div>
 
-        {/* Mini-Map Radar Canvas */}
+        {/* Real Roads Leaflet Mini-Map Canvas */}
         <div
-          className={`relative w-full bg-slate-950 overflow-hidden cursor-crosshair border-b border-slate-800/80 ${
+          ref={mapContainerRef}
+          className={`relative w-full overflow-hidden cursor-crosshair z-0 ${
             isExpanded ? 'h-52 sm:h-56' : 'h-36 sm:h-40'
           }`}
-          onClick={(e) => {
-            if (!onPanToLocation) return;
-            const rect = e.currentTarget.getBoundingClientRect();
-            const clickX = (e.clientX - rect.left) / rect.width;
-            const clickY = (e.clientY - rect.top) / rect.height;
-            // Reverse coordinates from percentage
-            const targetLng = minLng + clickX * lngSpan;
-            const targetLat = maxLat - clickY * latSpan;
-            onPanToLocation([targetLat, targetLng]);
-          }}
-          title="Mini-map radar: click anywhere to pan camera"
-        >
-          {/* Subtle Grid Lines to represent district street blocks */}
-          <div className="absolute inset-0 grid grid-cols-4 grid-rows-4 opacity-15 pointer-events-none">
-            {Array.from({ length: 16 }).map((_, i) => (
-              <div key={i} className="border border-sky-400/40" />
-            ))}
-          </div>
+          title="Mini-map showing real roads & streets. Click to pan camera."
+        />
 
-          {/* City Boundary Box representation */}
-          <div className="absolute inset-2 border border-dashed border-sky-500/30 rounded-xl pointer-events-none">
-            <span className="absolute top-1 left-1.5 text-[8px] font-mono text-sky-500/60 uppercase">
-              District Bounds
-            </span>
-          </div>
-
-          {/* City Center Marker */}
-          {(() => {
-            const centerPct = getPercentageCoords(currentCity.coordinates[0], currentCity.coordinates[1]);
-            return (
-              <div
-                className="absolute w-2 h-2 -ml-1 -mt-1 rounded-full bg-slate-500 border border-slate-300 pointer-events-none opacity-40"
-                style={{ top: `${centerPct.topPct}%`, left: `${centerPct.leftPct}%` }}
-                title="City Center"
-              />
-            );
-          })()}
-
-          {/* Transit Stations on Mini-Map */}
-          {(currentCity.stations || []).map((station: TransitStation) => {
-            const coords = getPercentageCoords(station.position[0], station.position[1]);
-            return (
-              <div
-                key={station.id}
-                className="absolute w-2 h-2 -ml-1 -mt-1 rounded-full bg-sky-400 border border-white shadow-sm pointer-events-none z-10"
-                style={{ top: `${coords.topPct}%`, left: `${coords.leftPct}%` }}
-                title={station.name}
-              />
-            );
-          })}
-
-          {/* Monsters on Mini-Map */}
-          {currentCity.monsters.map((monster: Monster) => {
-            const coords = getPercentageCoords(monster.position[0], monster.position[1]);
-            const isDefeated = defeatedMonsterIds.includes(monster.id);
-
-            return (
-              <div
-                key={monster.id}
-                className={`absolute w-2.5 h-2.5 -ml-1.25 -mt-1.25 rounded-full pointer-events-none z-10 transition-transform ${
-                  isDefeated
-                    ? 'bg-emerald-500/40 border border-emerald-400/50 scale-75'
-                    : 'bg-rose-500 border border-white shadow-md animate-pulse scale-100'
-                }`}
-                style={{ top: `${coords.topPct}%`, left: `${coords.leftPct}%` }}
-                title={`${monster.name} ${isDefeated ? '(Defeated)' : '(Active Encounter)'}`}
-              />
-            );
-          })}
-
-          {/* Live Player Position Indicator with Direction Cone */}
-          <div
-            className="absolute z-20 pointer-events-none transition-all duration-100 ease-out"
-            style={{
-              top: `${playerPct.topPct}%`,
-              left: `${playerPct.leftPct}%`,
-              transform: 'translate(-50%, -50%)'
-            }}
-          >
-            {/* Direction pointer cone */}
-            <div
-              className="relative flex items-center justify-center"
-              style={{ transform: `rotate(${rotationAngles[facingDirection]}deg)` }}
-            >
-              {/* Pulsing GPS ring */}
-              <div className="absolute w-6 h-6 rounded-full bg-amber-400/30 animate-ping" />
-
-              {/* Player Dot */}
-              <div className="w-3.5 h-3.5 rounded-full bg-amber-400 border-2 border-white shadow-lg flex items-center justify-center text-[8px] z-10">
-                <div className="w-1.5 h-1.5 rounded-full bg-slate-900" />
-              </div>
-
-              {/* North Arrow Pointer Needle */}
-              <div className="absolute -top-2 w-0 h-0 border-l-[3.5px] border-l-transparent border-r-[3.5px] border-r-transparent border-b-[5px] border-b-amber-300" />
-            </div>
-          </div>
-        </div>
-
-        {/* Legend / Status Footer */}
-        <div className="px-2 py-1 bg-slate-950 flex items-center justify-between text-[9px] text-slate-400">
-          <div className="flex items-center gap-2">
-            <span className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
-              You ({activeVehicleIcon})
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block" />
-              Monsters
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-sky-400 inline-block" />
-              Stations
-            </span>
-          </div>
-
-          <span className="font-mono text-slate-500 font-bold">
-            {facingDirection}
+        {/* Footer Sub-bar with Road Indicator */}
+        <div className="px-2.5 py-1 bg-slate-900/90 border-t border-slate-800/80 flex items-center justify-between text-[9px] text-slate-400">
+          <span className="flex items-center gap-1 text-sky-300 font-medium">
+            🛣️ Real Streets & Roads
+          </span>
+          <span className="text-slate-500 font-mono">
+            Click to Pan
           </span>
         </div>
       </div>

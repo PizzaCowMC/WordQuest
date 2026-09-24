@@ -1,18 +1,18 @@
 import { useState, useEffect } from 'react';
 import { INITIAL_CITIES, STARTERS } from './data/gameData';
-import { CityData, Monster, StarterCompanion, StudentProfile, TrainerAppearance, TransitStation, VehicleType } from './types';
+import { CityData, Monster, StarterCompanion, StudentProfile, TrainerAppearance, TransitStation, VehicleType, WeatherCondition } from './types';
 import { CityMapView } from './components/CityMapView';
 import { BattleModal } from './components/BattleModal';
 import { FlightSequence } from './components/FlightSequence';
 import { TrainerSetupModal } from './components/TrainerSetupModal';
 import { FieldGuideModal } from './components/FieldGuideModal';
-import { CityLessonModal } from './components/CityLessonModal';
 import { TransitStationModal } from './components/TransitStationModal';
 import { PhoneModal } from './components/PhoneModal';
 import { ResetConfirmModal } from './components/ResetConfirmModal';
 import { SaveSystemModal } from './components/SaveSystemModal';
 import { DailyRewardModal } from './components/DailyRewardModal';
 import { toggleSound, isSoundEnabled, soundEffects } from './utils/audio';
+import { getRandomWeatherForTimestamp } from './utils/weatherUtils';
 
 const STORAGE_KEY = 'wordquest_student_profile';
 
@@ -40,10 +40,43 @@ export default function App() {
     }
   }, []);
 
+  // Temperature unit preference (°C default, toggleable to °F in settings and phone)
+  const [tempUnit, setTempUnit] = useState<'C' | 'F'>(() => {
+    try {
+      const saved = localStorage.getItem('wordquest_temp_unit');
+      if (saved === 'C' || saved === 'F') return saved;
+      return student?.tempUnit || 'C';
+    } catch {
+      return 'C';
+    }
+  });
+
+  const handleToggleTempUnit = (unit: 'C' | 'F') => {
+    setTempUnit(unit);
+    try {
+      localStorage.setItem('wordquest_temp_unit', unit);
+    } catch {
+      // ignore
+    }
+    setStudent(prev => prev ? ({ ...prev, tempUnit: unit }) : null);
+  };
+
+  // Dynamic Random Weather System (Random weather changes every 15 min, no manual changing)
+  const [currentWeather, setCurrentWeather] = useState<WeatherCondition>(() => {
+    return getRandomWeatherForTimestamp(Date.now());
+  });
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const next = getRandomWeatherForTimestamp(Date.now());
+      setCurrentWeather(prev => (prev !== next ? next : prev));
+    }, 5000);
+    return () => clearInterval(timer);
+  }, []);
+
   const [activeBattleMonster, setActiveBattleMonster] = useState<Monster | null>(null);
   const [showFlightModal, setShowFlightModal] = useState<boolean>(false);
   const [showFieldGuideModal, setShowFieldGuideModal] = useState<boolean>(false);
-  const [showLessonGuideModal, setShowLessonGuideModal] = useState<boolean>(false);
   const [showTransitModal, setShowTransitModal] = useState<boolean>(false);
   const [showPhoneModal, setShowPhoneModal] = useState<boolean>(false);
   const [showSaveModal, setShowSaveModal] = useState<boolean>(false);
@@ -188,7 +221,6 @@ export default function App() {
     setActiveBattleMonster(null);
     setShowFlightModal(false);
     setShowFieldGuideModal(false);
-    setShowLessonGuideModal(false);
     setShowTransitModal(false);
     setShowResetModal(false);
     soundEffects.playSelect();
@@ -334,7 +366,6 @@ export default function App() {
           onSelectMonster={handleSelectMonster}
           onOpenFieldGuide={() => setShowFieldGuideModal(true)}
           onOpenFlight={() => setShowFlightModal(true)}
-          onOpenLessonGuide={() => setShowLessonGuideModal(true)}
           onOpenTransitHub={handleOpenTransitHub}
           onOpenPhone={() => setShowPhoneModal(true)}
           onOpenSaveSystem={() => setShowSaveModal(true)}
@@ -345,6 +376,9 @@ export default function App() {
           onToggleMute={handleToggleMute}
           showMiniMap={showMiniMap}
           onToggleMiniMap={handleToggleMiniMap}
+          currentWeather={currentWeather}
+          tempUnit={tempUnit}
+          onToggleTempUnit={handleToggleTempUnit}
         />
       )}
 
@@ -380,22 +414,7 @@ export default function App() {
         />
       )}
 
-      {/* 6. CITY LESSON & GRAMMAR GUIDE MODAL */}
-      {showLessonGuideModal && student && (
-        <CityLessonModal
-          city={currentCity}
-          cityIndex={currentCityIndex}
-          totalCities={allCities.length}
-          defeatedMonsterIds={student.defeatedMonsterIds}
-          onStartLessonBattle={(monster) => {
-            setShowLessonGuideModal(false);
-            handleSelectMonster(monster);
-          }}
-          onClose={() => setShowLessonGuideModal(false)}
-        />
-      )}
-
-      {/* 7. CITY EXPRESS LINES RAPID TRANSIT MODAL */}
+      {/* 6. CITY EXPRESS LINES RAPID TRANSIT MODAL */}
       {showTransitModal && student && (
         <TransitStationModal
           station={selectedStation}
@@ -405,11 +424,14 @@ export default function App() {
         />
       )}
 
-      {/* 8. SMARTPHONE APP MODAL (Call Taxis, Buy Tickets, Change Player Models, Wardrobe, GrammarDex) */}
+      {/* 7. SMARTPHONE APP MODAL (Weather, Call Taxis, Buy Tickets, Change Player Models, Wardrobe, Save) */}
       {showPhoneModal && student && (
         <PhoneModal
           student={student}
           currentCity={currentCity}
+          weather={currentWeather}
+          tempUnit={tempUnit}
+          onToggleTempUnit={handleToggleTempUnit}
           onClose={() => setShowPhoneModal(false)}
           onSelectVehicle={handleSelectVehicle}
           onUpdateAppearance={handleUpdateAppearance}
@@ -417,10 +439,6 @@ export default function App() {
           onOpenFieldGuide={() => {
             setShowPhoneModal(false);
             setShowFieldGuideModal(true);
-          }}
-          onOpenLessonGuide={() => {
-            setShowPhoneModal(false);
-            setShowLessonGuideModal(true);
           }}
           onOpenSaveSystem={() => {
             setShowPhoneModal(false);
@@ -437,7 +455,7 @@ export default function App() {
         />
       )}
 
-      {/* 9. ADVENTURE SAVE SYSTEM MODAL (Save Slots, Quick Save, JSON Export/Import) */}
+      {/* 8. ADVENTURE SAVE SYSTEM MODAL (Save Slots, Quick Save, JSON Export/Import) */}
       {showSaveModal && student && (
         <SaveSystemModal
           student={student}
@@ -454,15 +472,11 @@ export default function App() {
         />
       )}
 
-      {/* 10. DAILY LOGIN REWARDS & STREAK MODAL */}
+      {/* 9. DAILY LOGIN REWARDS & STREAK MODAL */}
       {showDailyRewardModal && student && (
         <DailyRewardModal
           student={student}
           onClaimReward={handleClaimDailyReward}
-          onOpenLessonGuide={() => {
-            setShowDailyRewardModal(false);
-            setShowLessonGuideModal(true);
-          }}
           onClose={() => setShowDailyRewardModal(false)}
         />
       )}

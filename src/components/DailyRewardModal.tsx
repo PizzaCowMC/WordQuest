@@ -90,14 +90,12 @@ export function calculateDailyRewardStatus(student: StudentProfile, todayStr: st
 interface DailyRewardModalProps {
   student: StudentProfile;
   onClaimReward: (coins: number, xp: number, streak: number, dateStr: string) => void;
-  onOpenLessonGuide: () => void;
   onClose: () => void;
 }
 
 export const DailyRewardModal: React.FC<DailyRewardModalProps> = ({
   student,
   onClaimReward,
-  onOpenLessonGuide,
   onClose
 }) => {
   const todayStr = new Date().toLocaleDateString('en-CA');
@@ -175,19 +173,17 @@ export const DailyRewardModal: React.FC<DailyRewardModalProps> = ({
               </div>
             </div>
 
-            {/* Quick action to enter lesson right away */}
+            {/* Quick action to close modal */}
             <button
-              id="daily-modal-enter-lesson-btn"
+              id="daily-modal-close-btn"
               onClick={() => {
                 soundEffects.playSelect();
                 onClose();
-                onOpenLessonGuide();
               }}
-              className="px-3 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs shadow-md flex items-center gap-1.5 transition cursor-pointer shrink-0"
-              title="Enter English Lesson"
+              className="px-3 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs shadow-md flex items-center gap-1.5 transition cursor-pointer shrink-0"
+              title="Close & Explore Map"
             >
-              <BookOpen className="w-4 h-4" />
-              <span>Enter Lesson</span>
+              <span>Explore Map</span>
             </button>
           </div>
         ) : (
@@ -277,16 +273,15 @@ export const DailyRewardModal: React.FC<DailyRewardModalProps> = ({
             </button>
           ) : (
             <button
-              id="daily-enter-lesson-primary-btn"
+              id="daily-continue-adventure-btn"
               onClick={() => {
                 soundEffects.playSelect();
                 onClose();
-                onOpenLessonGuide();
               }}
-              className="w-full sm:flex-1 py-3 px-4 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-sm shadow-xl shadow-amber-500/20 flex items-center justify-center gap-2 transition active:scale-98 cursor-pointer"
+              className="w-full sm:flex-1 py-3 px-4 rounded-2xl bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-300 hover:to-teal-400 text-slate-950 font-black text-sm shadow-xl shadow-emerald-500/20 flex items-center justify-center gap-2 transition active:scale-98 cursor-pointer"
             >
-              <BookOpen className="w-5 h-5" />
-              <span>Enter English Lesson Now</span>
+              <Sparkles className="w-5 h-5 text-emerald-950" />
+              <span>Explore City Map & Monsters</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           )}

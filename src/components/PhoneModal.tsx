@@ -1,6 +1,13 @@
-import React, { useState } from 'react';
-import { StudentProfile, CityData, VehicleType, TransitStation } from '../types';
+import React, { useState, useEffect } from 'react';
+import { StudentProfile, CityData, VehicleType, TransitStation, WeatherCondition } from '../types';
 import { AVATAR_OPTIONS, OUTFIT_COLORS, ACCESSORY_OPTIONS, VEHICLE_OPTIONS, TRANSIT_TICKETS } from '../data/transitData';
+import { 
+  WEATHER_DATA, 
+  WEATHER_CYCLE_MS, 
+  formatTemperature, 
+  getHourlyForecast, 
+  getDailyForecast 
+} from '../utils/weatherUtils';
 import { soundEffects } from '../utils/audio';
 import { 
   X, 
@@ -10,7 +17,6 @@ import {
   Car, 
   CreditCard, 
   User, 
-  BookOpen, 
   Radio, 
   ChevronLeft, 
   Check, 
@@ -25,18 +31,25 @@ import {
   VolumeX,
   Smartphone,
   Settings as SettingsIcon,
-  Map as MapIcon
+  Map as MapIcon,
+  Wind,
+  Droplets,
+  Eye,
+  Thermometer,
+  CloudSun
 } from 'lucide-react';
 
 interface PhoneModalProps {
   student: StudentProfile;
   currentCity: CityData;
+  weather?: WeatherCondition;
+  tempUnit?: 'C' | 'F';
+  onToggleTempUnit?: (unit: 'C' | 'F') => void;
   onSelectVehicle: (vehicle: VehicleType) => void;
   onUpdateAppearance: (appearance: StudentProfile['appearance']) => void;
   onBuyTicket: (ticketId: string, costCoins: number, vehicleType: VehicleType) => boolean;
   onFastTravelToStation?: (station: TransitStation) => void;
   onOpenFieldGuide?: () => void;
-  onOpenLessonGuide?: () => void;
   onOpenSaveSystem?: () => void;
   onOpenDailyReward?: () => void;
   onClose: () => void;
@@ -46,17 +59,19 @@ interface PhoneModalProps {
   onToggleMiniMap?: () => void;
 }
 
-type PhoneApp = 'home' | 'ride' | 'tickets' | 'wardrobe' | 'grammar' | 'radar' | 'radio' | 'settings';
+type PhoneApp = 'home' | 'ride' | 'tickets' | 'wardrobe' | 'weather' | 'radar' | 'radio' | 'settings';
 
 export const PhoneModal: React.FC<PhoneModalProps> = ({
   student,
   currentCity,
+  weather = 'sunny',
+  tempUnit = 'C',
+  onToggleTempUnit,
   onSelectVehicle,
   onUpdateAppearance,
   onBuyTicket,
   onFastTravelToStation,
   onOpenFieldGuide,
-  onOpenLessonGuide,
   onOpenSaveSystem,
   onOpenDailyReward,
   onClose,
@@ -82,6 +97,26 @@ export const PhoneModal: React.FC<PhoneModalProps> = ({
 
   // Active vehicle info
   const activeVehicleOption = VEHICLE_OPTIONS.find(v => v.type === student.activeVehicle) || VEHICLE_OPTIONS[0];
+
+  // Active weather data & countdown for Weather App
+  const activeWeatherInfo = WEATHER_DATA[weather] || WEATHER_DATA.sunny;
+  const [countdownStr, setCountdownStr] = useState<string>('15:00');
+
+  useEffect(() => {
+    const updateCountdown = () => {
+      const now = Date.now();
+      const msRemaining = WEATHER_CYCLE_MS - (now % WEATHER_CYCLE_MS);
+      const m = Math.floor(msRemaining / 60000);
+      const s = Math.floor((msRemaining % 60000) / 1000);
+      setCountdownStr(`${m}:${s < 10 ? '0' : ''}${s}`);
+    };
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const hourlyForecast = getHourlyForecast(weather, activeWeatherInfo.tempCelsius);
+  const dailyForecast = getDailyForecast(weather);
 
   // Handle Hailing a Taxi or Car
   const handleHailVehicle = (vehicle: VehicleType, name: string) => {
@@ -209,8 +244,13 @@ export const PhoneModal: React.FC<PhoneModalProps> = ({
                     <div className="text-[10px] font-bold text-sky-300 uppercase tracking-wider">
                       {currentCity.name}, {currentCity.country}
                     </div>
-                    <div className="text-xl font-black text-white mt-0.5 font-['Fredoka',sans-serif]">
-                      WordQuest OS
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xl font-black text-white font-['Fredoka',sans-serif]">
+                        WordQuest OS
+                      </span>
+                      <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-sky-500/20 text-sky-300 border border-sky-400/30">
+                        v1.9.5
+                      </span>
                     </div>
                     <div className="text-xs text-slate-300 mt-0.5">
                       Trainer <strong className="text-white">{student.name}</strong> • Lv. {student.level}
@@ -288,24 +328,23 @@ export const PhoneModal: React.FC<PhoneModalProps> = ({
                     <span className="text-[9px] text-slate-400 -mt-1">New Models</span>
                   </button>
 
-                  {/* App 4: English Lesson & Grammar Guide */}
+                  {/* App 4: Weather Forecast App */}
                   <button
+                    id="phone-open-weather-app-btn"
                     onClick={() => {
                       soundEffects.playSelect();
-                      if (onOpenLessonGuide) {
-                        onClose();
-                        onOpenLessonGuide();
-                      } else {
-                        setActiveApp('grammar');
-                      }
+                      setActiveApp('weather');
                     }}
-                    className="flex flex-col items-center gap-1.5 p-2.5 rounded-2xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700 hover:border-emerald-400 transition cursor-pointer group"
+                    className="flex flex-col items-center gap-1.5 p-2.5 rounded-2xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700 hover:border-sky-400 transition cursor-pointer group"
+                    title={`Weather in ${currentCity.name}: ${activeWeatherInfo.label} (${formatTemperature(activeWeatherInfo.tempCelsius, tempUnit)})`}
                   >
-                    <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center text-2xl shadow group-hover:scale-110 transition">
-                      📖
+                    <div className="w-12 h-12 rounded-2xl bg-sky-500/20 border border-sky-500/40 text-sky-400 flex items-center justify-center text-2xl shadow group-hover:scale-110 transition">
+                      {activeWeatherInfo.icon}
                     </div>
-                    <span className="text-xs font-bold text-slate-200">English Lesson</span>
-                    <span className="text-[9px] text-slate-400 -mt-1">City Rules</span>
+                    <span className="text-xs font-bold text-slate-200">Weather</span>
+                    <span className="text-[9px] text-sky-300 font-mono -mt-1 font-semibold">
+                      {formatTemperature(activeWeatherInfo.tempCelsius, tempUnit)}
+                    </span>
                   </button>
 
                   {/* App 5: Daily Login Bonus */}
@@ -715,58 +754,172 @@ export const PhoneModal: React.FC<PhoneModalProps> = ({
             </div>
           )}
 
-          {/* 5. GRAMMAR GUIDE APP */}
-          {activeApp === 'grammar' && (
-            <div className="space-y-4 animate-in fade-in duration-150">
+          {/* 5. WEATHER FORECAST APP */}
+          {activeApp === 'weather' && (
+            <div className="space-y-3.5 animate-in fade-in duration-150">
+              {/* Header */}
               <div className="flex items-center justify-between pb-2 border-b border-slate-800">
                 <button
-                  onClick={() => setActiveApp('home')}
+                  onClick={() => {
+                    soundEffects.playSelect();
+                    setActiveApp('home');
+                  }}
                   className="flex items-center gap-1 text-xs text-sky-400 font-bold hover:underline cursor-pointer"
                 >
                   <ChevronLeft className="w-4 h-4" />
                   <span>Home</span>
                 </button>
-                <h3 className="text-sm font-black text-white">GrammarDex Guide</h3>
-                <span className="text-[10px] text-amber-300">{currentCity.name}</span>
-              </div>
-
-              <div className="p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/40 space-y-2">
-                <div className="text-xs font-black text-amber-300">
-                  {currentCity.lessonTitle}
+                <div className="text-center">
+                  <h3 className="text-sm font-black text-white">{currentCity.name}</h3>
+                  <span className="text-[10px] text-slate-400 font-mono">Live Weather</span>
                 </div>
-                <p className="text-xs text-amber-100 font-medium leading-relaxed">
-                  {currentCity.lessonGrammarRule}
-                </p>
+                {/* Quick Unit Toggle */}
+                <button
+                  onClick={() => {
+                    soundEffects.playSelect();
+                    onToggleTempUnit?.(tempUnit === 'C' ? 'F' : 'C');
+                  }}
+                  className="px-2 py-0.5 rounded-lg bg-slate-800 border border-slate-700 text-[10px] font-bold text-sky-300 hover:text-white transition cursor-pointer"
+                  title="Toggle °C / °F"
+                >
+                  Unit: {tempUnit === 'C' ? '°C' : '°F'}
+                </button>
               </div>
 
-              <div className="space-y-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                  City Road Monsters:
+              {/* Big Weather Hero Card */}
+              <div 
+                className={`p-4 rounded-3xl border shadow-xl relative overflow-hidden text-center transition-all ${
+                  weather === 'sunny'
+                    ? 'bg-gradient-to-b from-amber-500/30 via-yellow-600/20 to-slate-900 border-amber-400/40'
+                    : weather === 'rainy' || weather === 'thunderstorm'
+                    ? 'bg-gradient-to-b from-blue-700/30 via-slate-800/30 to-slate-900 border-sky-400/40'
+                    : weather === 'snowy'
+                    ? 'bg-gradient-to-b from-cyan-600/30 via-sky-800/20 to-slate-900 border-cyan-400/40'
+                    : weather === 'foggy'
+                    ? 'bg-gradient-to-b from-slate-600/30 via-slate-700/20 to-slate-900 border-slate-400/40'
+                    : 'bg-gradient-to-b from-emerald-600/30 via-teal-800/20 to-slate-900 border-emerald-400/40'
+                }`}
+              >
+                <div className="text-5xl mb-1 filter drop-shadow">{activeWeatherInfo.icon}</div>
+                <div className="text-3xl font-black text-white font-mono tracking-tight">
+                  {formatTemperature(activeWeatherInfo.tempCelsius, tempUnit)}
+                </div>
+                <div className="text-sm font-extrabold text-white mt-0.5">
+                  {activeWeatherInfo.label}
+                </div>
+                <div className="text-[11px] text-slate-300 font-medium mt-1">
+                  Feels like {formatTemperature(activeWeatherInfo.feelsLikeCelsius, tempUnit)} • H: {formatTemperature(activeWeatherInfo.highCelsius, tempUnit)} L: {formatTemperature(activeWeatherInfo.lowCelsius, tempUnit)}
+                </div>
+                <div className="mt-2 text-[10px] text-slate-200 bg-black/30 backdrop-blur-sm rounded-xl py-1 px-2.5 inline-block">
+                  {activeWeatherInfo.description}
+                </div>
+              </div>
+
+              {/* 15-Minute Random Shift Timer Banner */}
+              <div className="p-2.5 rounded-2xl bg-slate-850 border border-slate-750 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-amber-400 shrink-0" />
+                  <div>
+                    <span className="font-bold text-slate-200">Atmospheric Shift</span>
+                    <p className="text-[10px] text-slate-400">Random weather every 15 min</p>
+                  </div>
+                </div>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-900 border border-slate-700 text-amber-300">
+                  ⏱️ {countdownStr}
                 </span>
-                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                  {currentCity.monsters.map(m => {
-                    const isDefeated = student.defeatedMonsterIds.includes(m.id);
-                    return (
-                      <div
-                        key={m.id}
-                        className="p-2 rounded-xl bg-slate-800/80 border border-slate-700 flex items-center justify-between text-xs"
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="text-lg">{m.avatarIcon}</span>
-                          <div>
-                            <div className="font-bold text-white flex items-center gap-1">
-                              <span>{m.name}</span>
-                              {isDefeated && <Check className="w-3 h-3 text-emerald-400" />}
-                            </div>
-                            <div className="text-[10px] text-slate-400">📍 {m.streetName}</div>
-                          </div>
-                        </div>
-                        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-700 text-amber-300">
-                          {m.lessonTopic || 'English Core'}
+              </div>
+
+              {/* Hourly Forecast */}
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block px-1">
+                  Hourly Microclimate:
+                </span>
+                <div className="flex gap-2 overflow-x-auto pb-1.5 pt-0.5">
+                  {hourlyForecast.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="flex flex-col items-center gap-1 p-2 rounded-xl bg-slate-850 border border-slate-700/80 min-w-[54px] shrink-0"
+                    >
+                      <span className="text-[9px] text-slate-400 font-mono">{item.timeLabel}</span>
+                      <span className="text-base">{item.icon}</span>
+                      <span className="text-[10px] font-bold text-white font-mono">
+                        {formatTemperature(item.tempCelsius, tempUnit)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 5-Day Forecast */}
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block px-1">
+                  5-Day Outlook:
+                </span>
+                <div className="space-y-1 rounded-2xl bg-slate-850 border border-slate-700/80 p-2.5">
+                  {dailyForecast.map((day, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between py-1 border-b border-slate-800/60 last:border-0 text-xs"
+                    >
+                      <span className="font-bold text-slate-300 w-16">{day.dayLabel}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span>{day.icon}</span>
+                        <span className="text-[10px] text-slate-400 hidden sm:inline capitalize">
+                          {day.condition}
                         </span>
                       </div>
-                    );
-                  })}
+                      <div className="flex items-center gap-2 text-[10px] font-mono">
+                        <span className="text-slate-400">{formatTemperature(day.lowCelsius, tempUnit)}</span>
+                        <div className="w-12 h-1.5 rounded-full bg-slate-750 overflow-hidden">
+                          <div className="w-3/4 h-full bg-gradient-to-r from-sky-400 to-amber-400 rounded-full" />
+                        </div>
+                        <span className="text-white font-bold">{formatTemperature(day.highCelsius, tempUnit)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Meteorological Metrics Grid */}
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="p-2.5 rounded-2xl bg-slate-850 border border-slate-700">
+                  <div className="flex items-center gap-1.5 text-slate-400 text-[10px]">
+                    <Wind className="w-3.5 h-3.5 text-sky-400" />
+                    <span>WIND</span>
+                  </div>
+                  <div className="text-sm font-bold text-white mt-1">
+                    {activeWeatherInfo.windSpeedKmh} <span className="text-[10px] text-slate-400">km/h</span>
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-2xl bg-slate-850 border border-slate-700">
+                  <div className="flex items-center gap-1.5 text-slate-400 text-[10px]">
+                    <Droplets className="w-3.5 h-3.5 text-blue-400" />
+                    <span>HUMIDITY</span>
+                  </div>
+                  <div className="text-sm font-bold text-white mt-1">
+                    {activeWeatherInfo.humidity}%
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-2xl bg-slate-850 border border-slate-700">
+                  <div className="flex items-center gap-1.5 text-slate-400 text-[10px]">
+                    <Eye className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>VISIBILITY</span>
+                  </div>
+                  <div className="text-sm font-bold text-white mt-1">
+                    {activeWeatherInfo.visibilityKm} <span className="text-[10px] text-slate-400">km</span>
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-2xl bg-slate-850 border border-slate-700">
+                  <div className="flex items-center gap-1.5 text-slate-400 text-[10px]">
+                    <Thermometer className="w-3.5 h-3.5 text-amber-400" />
+                    <span>FEELS LIKE</span>
+                  </div>
+                  <div className="text-sm font-bold text-white mt-1">
+                    {formatTemperature(activeWeatherInfo.feelsLikeCelsius, tempUnit)}
+                  </div>
                 </div>
               </div>
             </div>

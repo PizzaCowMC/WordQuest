@@ -1,87 +1,48 @@
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { WeatherCondition, WeatherInfo } from '../types';
-import { Sun, CloudRain, Snowflake, Clock, Sparkles, ChevronRight, Wind } from 'lucide-react';
+import { 
+  WEATHER_CYCLE_MS, 
+  WEATHER_DATA, 
+  getRandomWeatherForTimestamp, 
+  formatTemperature 
+} from '../utils/weatherUtils';
 import { soundEffects } from '../utils/audio';
-
-const CYCLE_MS = 15 * 60 * 1000; // 15 minutes in milliseconds
-
-export const WEATHER_DATA: Record<WeatherCondition, WeatherInfo> = {
-  sunny: {
-    condition: 'sunny',
-    label: 'Sunny Skies',
-    icon: '☀️',
-    tempCelsius: 22,
-    description: 'Clear golden sunlight warming the city streets and avenues.',
-    ambianceEffect: 'Golden sunbeams, radiant atmosphere & high visibility'
-  },
-  rainy: {
-    condition: 'rainy',
-    label: 'Rainstorm',
-    icon: '🌧️',
-    tempCelsius: 13,
-    description: 'Overcast skies with steady raindrops glistening on asphalt roads.',
-    ambianceEffect: 'Diagonal rain streaks, puddle splashes & cool slate-blue hue'
-  },
-  snowy: {
-    condition: 'snowy',
-    label: 'Winter Snowfall',
-    icon: '❄️',
-    tempCelsius: -2,
-    description: 'Gentle snowflakes fluttering down across monuments and parks.',
-    ambianceEffect: 'Floating snow particles, crisp ice-blue tint & frosty vignette'
-  }
-};
-
-const WEATHER_ORDER: WeatherCondition[] = ['sunny', 'rainy', 'snowy'];
+import { Smartphone, Info, Wind, Droplets, Eye, Thermometer } from 'lucide-react';
 
 interface CityWeatherOverlayProps {
-  manualWeather?: WeatherCondition | null;
-  onWeatherChange?: (condition: WeatherCondition) => void;
+  weather: WeatherCondition;
   className?: string;
 }
 
 export const CityWeatherOverlay: React.FC<CityWeatherOverlayProps> = ({
-  manualWeather = null,
-  onWeatherChange,
+  weather,
   className = ''
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [lightningFlash, setLightningFlash] = useState<boolean>(false);
 
-  // Auto-calculated weather based on 15-minute global cycle
-  const [autoWeather, setAutoWeather] = useState<WeatherCondition>(() => {
-    const cycleIndex = Math.floor(Date.now() / CYCLE_MS) % 3;
-    return WEATHER_ORDER[cycleIndex];
-  });
-
-  const [msUntilNextShift, setMsUntilNextShift] = useState<number>(() => {
-    return CYCLE_MS - (Date.now() % CYCLE_MS);
-  });
-
-  // Effective weather condition
-  const activeWeather = manualWeather || autoWeather;
-
-  // Track 15-minute interval cycle and countdown
+  // Occasional subtle lightning flash for thunderstorm
   useEffect(() => {
-    const timer = setInterval(() => {
-      const now = Date.now();
-      const cycleIndex = Math.floor(now / CYCLE_MS) % 3;
-      const nextWeather = WEATHER_ORDER[cycleIndex];
-      const remaining = CYCLE_MS - (now % CYCLE_MS);
+    if (weather !== 'thunderstorm') {
+      setLightningFlash(false);
+      return;
+    }
 
-      setMsUntilNextShift(remaining);
+    let timeoutId: NodeJS.Timeout;
+    const scheduleFlash = () => {
+      const delay = 6000 + Math.random() * 9000;
+      timeoutId = setTimeout(() => {
+        setLightningFlash(true);
+        setTimeout(() => setLightningFlash(false), 120);
+        scheduleFlash();
+      }, delay);
+    };
 
-      if (nextWeather !== autoWeather) {
-        setAutoWeather(nextWeather);
-        if (!manualWeather && onWeatherChange) {
-          onWeatherChange(nextWeather);
-        }
-      }
-    }, 1000);
+    scheduleFlash();
+    return () => clearTimeout(timeoutId);
+  }, [weather]);
 
-    return () => clearInterval(timer);
-  }, [autoWeather, manualWeather, onWeatherChange]);
-
-  // Canvas particle animation (Rain or Snow or Sunlight motes)
+  // Canvas particle animation (Safe 2D canvas, no backdrop filters)
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -128,41 +89,88 @@ export const CityWeatherOverlay: React.FC<CityWeatherOverlayProps> = ({
       opacity: number;
     }> = [];
 
-    if (activeWeather === 'rainy') {
-      const count = Math.min(140, Math.floor(width / 10));
+    const fogPatches: Array<{
+      x: number;
+      y: number;
+      radius: number;
+      speedX: number;
+      opacity: number;
+    }> = [];
+
+    const windLeaves: Array<{
+      x: number;
+      y: number;
+      size: number;
+      speedX: number;
+      speedY: number;
+      rotation: number;
+      rotationSpeed: number;
+      color: string;
+    }> = [];
+
+    if (weather === 'rainy' || weather === 'thunderstorm') {
+      const count = weather === 'thunderstorm' 
+        ? Math.min(180, Math.floor(width / 7)) 
+        : Math.min(120, Math.floor(width / 10));
+
       for (let i = 0; i < count; i++) {
         rainParticles.push({
           x: Math.random() * width,
           y: Math.random() * height,
-          length: 14 + Math.random() * 18,
-          speed: 15 + Math.random() * 12,
-          opacity: 0.35 + Math.random() * 0.45
+          length: weather === 'thunderstorm' ? 18 + Math.random() * 22 : 12 + Math.random() * 16,
+          speed: weather === 'thunderstorm' ? 18 + Math.random() * 14 : 14 + Math.random() * 10,
+          opacity: 0.3 + Math.random() * 0.45
         });
       }
-    } else if (activeWeather === 'snowy') {
+    } else if (weather === 'snowy') {
       const count = Math.min(100, Math.floor(width / 14));
       for (let i = 0; i < count; i++) {
         snowParticles.push({
           x: Math.random() * width,
           y: Math.random() * height,
           radius: 1.5 + Math.random() * 2.8,
-          speedY: 0.8 + Math.random() * 1.6,
-          speedX: (Math.random() - 0.5) * 0.6,
+          speedY: 0.8 + Math.random() * 1.5,
+          speedX: (Math.random() - 0.5) * 0.7,
           angle: Math.random() * Math.PI * 2,
-          opacity: 0.45 + Math.random() * 0.5
+          opacity: 0.45 + Math.random() * 0.45
         });
       }
-    } else if (activeWeather === 'sunny') {
-      // Warm floating light particles
-      const count = 35;
+    } else if (weather === 'sunny') {
+      const count = 30;
       for (let i = 0; i < count; i++) {
         sunMotes.push({
           x: Math.random() * width,
           y: Math.random() * height,
           radius: 1.5 + Math.random() * 3,
-          speedY: -0.3 - Math.random() * 0.5,
-          speedX: (Math.random() - 0.5) * 0.4,
-          opacity: 0.2 + Math.random() * 0.45
+          speedY: -0.2 - Math.random() * 0.4,
+          speedX: (Math.random() - 0.5) * 0.3,
+          opacity: 0.2 + Math.random() * 0.4
+        });
+      }
+    } else if (weather === 'foggy') {
+      const count = 18;
+      for (let i = 0; i < count; i++) {
+        fogPatches.push({
+          x: Math.random() * width,
+          y: Math.random() * height,
+          radius: 120 + Math.random() * 180,
+          speedX: 0.2 + Math.random() * 0.4,
+          opacity: 0.08 + Math.random() * 0.12
+        });
+      }
+    } else if (weather === 'windy') {
+      const count = 35;
+      const leafColors = ['#eab308', '#f97316', '#84cc16', '#b45309'];
+      for (let i = 0; i < count; i++) {
+        windLeaves.push({
+          x: Math.random() * width,
+          y: Math.random() * height,
+          size: 4 + Math.random() * 6,
+          speedX: 5 + Math.random() * 7,
+          speedY: 1 + Math.random() * 3,
+          rotation: Math.random() * Math.PI * 2,
+          rotationSpeed: (Math.random() - 0.5) * 0.15,
+          color: leafColors[Math.floor(Math.random() * leafColors.length)]
         });
       }
     }
@@ -171,31 +179,29 @@ export const CityWeatherOverlay: React.FC<CityWeatherOverlayProps> = ({
     const render = () => {
       ctx.clearRect(0, 0, width, height);
 
-      if (activeWeather === 'rainy') {
-        // Draw diagonal raindrops
-        ctx.lineWidth = 1.6;
+      if (weather === 'rainy' || weather === 'thunderstorm') {
+        ctx.lineWidth = weather === 'thunderstorm' ? 2.0 : 1.5;
         rainParticles.forEach(p => {
-          ctx.strokeStyle = `rgba(186, 230, 253, ${p.opacity})`;
+          ctx.strokeStyle = weather === 'thunderstorm' 
+            ? `rgba(147, 197, 253, ${p.opacity})` 
+            : `rgba(186, 230, 253, ${p.opacity})`;
           ctx.beginPath();
           ctx.moveTo(p.x, p.y);
-          ctx.lineTo(p.x - 3, p.y + p.length);
+          ctx.lineTo(p.x - 3.5, p.y + p.length);
           ctx.stroke();
 
-          // Update position
-          p.x -= 1.5;
+          p.x -= 2.0;
           p.y += p.speed;
 
-          // Splash ripple occasionally at bottom
           if (p.y > height) {
             p.y = -20;
-            p.x = Math.random() * (width + 50);
+            p.x = Math.random() * (width + 60);
           }
         });
-      } else if (activeWeather === 'snowy') {
-        // Draw soft falling snow circles with sway
+      } else if (weather === 'snowy') {
         snowParticles.forEach(p => {
           p.angle += 0.02;
-          p.x += Math.sin(p.angle) * 0.8 + p.speedX;
+          p.x += Math.sin(p.angle) * 0.9 + p.speedX;
           p.y += p.speedY;
 
           ctx.fillStyle = `rgba(240, 249, 255, ${p.opacity})`;
@@ -210,15 +216,14 @@ export const CityWeatherOverlay: React.FC<CityWeatherOverlayProps> = ({
           if (p.x < -10) p.x = width + 10;
           if (p.x > width + 10) p.x = -10;
         });
-      } else if (activeWeather === 'sunny') {
-        // Draw golden sun sparkles
+      } else if (weather === 'sunny') {
         sunMotes.forEach(p => {
           p.x += p.speedX;
           p.y += p.speedY;
 
           const gradient = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.radius * 2);
           gradient.addColorStop(0, `rgba(253, 224, 71, ${p.opacity})`);
-          gradient.addColorStop(1, `rgba(251, 191, 36, 0)`);
+          gradient.addColorStop(1, 'rgba(251, 191, 36, 0)');
 
           ctx.fillStyle = gradient;
           ctx.beginPath();
@@ -228,6 +233,46 @@ export const CityWeatherOverlay: React.FC<CityWeatherOverlayProps> = ({
           if (p.y < -10) {
             p.y = height + 10;
             p.x = Math.random() * width;
+          }
+        });
+      } else if (weather === 'foggy') {
+        fogPatches.forEach(p => {
+          p.x += p.speedX;
+          const gradient = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.radius);
+          gradient.addColorStop(0, `rgba(226, 232, 240, ${p.opacity})`);
+          gradient.addColorStop(1, 'rgba(226, 232, 240, 0)');
+
+          ctx.fillStyle = gradient;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+          ctx.fill();
+
+          if (p.x - p.radius > width) {
+            p.x = -p.radius;
+            p.y = Math.random() * height;
+          }
+        });
+      } else if (weather === 'windy') {
+        windLeaves.forEach(p => {
+          p.x += p.speedX;
+          p.y += p.speedY;
+          p.rotation += p.rotationSpeed;
+
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.rotation);
+          ctx.fillStyle = p.color;
+          ctx.beginPath();
+          ctx.ellipse(0, 0, p.size, p.size * 0.5, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+
+          if (p.x > width + 20) {
+            p.x = -20;
+            p.y = Math.random() * height;
+          }
+          if (p.y > height + 20) {
+            p.y = -20;
           }
         });
       }
@@ -241,40 +286,60 @@ export const CityWeatherOverlay: React.FC<CityWeatherOverlayProps> = ({
       cancelAnimationFrame(animationFrameId);
       window.removeEventListener('resize', handleResize);
     };
-  }, [activeWeather]);
+  }, [weather]);
 
   return (
-    <div className={`pointer-events-none absolute inset-0 z-[350] overflow-hidden transition-all duration-1000 ${className}`}>
+    <div className={`pointer-events-none absolute inset-0 z-[350] overflow-hidden ${className}`}>
       
-      {/* 1. Ambiance Lighting and Color Grading Tint on Map */}
-      {activeWeather === 'sunny' && (
+      {/* 1. SAFE Ambient Lighting Tints (NO backdrop-filter, never breaks Leaflet) */}
+      {weather === 'sunny' && (
         <>
-          {/* Radiant Sun Lens Flare in top-right */}
-          <div className="absolute top-0 right-0 w-[55vw] h-[55vh] max-w-[600px] max-h-[600px] bg-gradient-to-br from-amber-400/20 via-yellow-400/10 to-transparent rounded-full blur-3xl pointer-events-none" />
-          {/* Subtle warm golden ambiance over map */}
-          <div className="absolute inset-0 bg-gradient-to-tr from-amber-500/5 via-transparent to-yellow-500/10 mix-blend-screen pointer-events-none" />
+          <div className="absolute top-0 right-0 w-96 h-96 bg-amber-400/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute inset-0 bg-amber-500/5 pointer-events-none" />
         </>
       )}
 
-      {activeWeather === 'rainy' && (
+      {weather === 'cloudy' && (
+        <div className="absolute inset-0 bg-slate-900/10 pointer-events-none" />
+      )}
+
+      {weather === 'rainy' && (
         <>
-          {/* Overcast, cool blue-slate gloomy atmosphere */}
-          <div className="absolute inset-0 bg-slate-950/25 backdrop-saturate-[0.85] pointer-events-none" />
-          {/* Dark storm vignette around edges */}
-          <div className="absolute inset-0 shadow-[inset_0_0_120px_rgba(15,23,42,0.6)] pointer-events-none" />
+          <div className="absolute inset-0 bg-slate-950/20 pointer-events-none" />
+          <div className="absolute inset-0 shadow-[inset_0_0_100px_rgba(15,23,42,0.45)] pointer-events-none" />
         </>
       )}
 
-      {activeWeather === 'snowy' && (
+      {weather === 'thunderstorm' && (
         <>
-          {/* Frosty cool ice-blue tint */}
-          <div className="absolute inset-0 bg-sky-950/15 backdrop-saturate-[0.8] backdrop-contrast-[1.05] pointer-events-none" />
-          {/* Soft winter frost vignette */}
-          <div className="absolute inset-0 shadow-[inset_0_0_100px_rgba(186,230,253,0.35)] pointer-events-none" />
+          <div className="absolute inset-0 bg-slate-950/35 pointer-events-none" />
+          <div className="absolute inset-0 shadow-[inset_0_0_140px_rgba(2,6,23,0.7)] pointer-events-none" />
+          {/* Lightning Flash Effect */}
+          {lightningFlash && (
+            <div className="absolute inset-0 bg-sky-100/40 pointer-events-none transition-opacity duration-75" />
+          )}
         </>
       )}
 
-      {/* 2. Interactive Canvas for Particles (Rain, Snow, Motes) */}
+      {weather === 'snowy' && (
+        <>
+          <div className="absolute inset-0 bg-cyan-950/10 pointer-events-none" />
+          <div className="absolute inset-0 shadow-[inset_0_0_90px_rgba(186,230,253,0.25)] pointer-events-none" />
+        </>
+      )}
+
+      {weather === 'foggy' && (
+        <>
+          <div className="absolute inset-0 bg-slate-800/25 pointer-events-none" />
+          <div className="absolute inset-0 shadow-[inset_0_0_120px_rgba(203,213,225,0.2)] pointer-events-none" />
+        </>
+      )}
+
+      {weather === 'windy' && (
+        <div className="absolute inset-0 bg-emerald-950/5 pointer-events-none" />
+      )}
+
+      {/* 2. Particle Canvas (Rain, Snow, Motes, Fog, Leaves) */}
       <canvas
         ref={canvasRef}
         className="absolute inset-0 w-full h-full pointer-events-none"
@@ -283,26 +348,25 @@ export const CityWeatherOverlay: React.FC<CityWeatherOverlayProps> = ({
   );
 };
 
-// Weather Badge with 15-Minute Countdown & Quick Toggle for Header
+// Weather Badge for Header (Purely informational with countdown, NO manual changing)
 interface CityWeatherWidgetProps {
   currentWeather: WeatherCondition;
-  onSelectWeather: (weather: WeatherCondition | null) => void;
-  isManualOverride: boolean;
+  tempUnit?: 'C' | 'F';
+  onOpenPhoneWeather?: () => void;
 }
 
 export const CityWeatherWidget: React.FC<CityWeatherWidgetProps> = ({
   currentWeather,
-  onSelectWeather,
-  isManualOverride
+  tempUnit = 'C',
+  onOpenPhoneWeather
 }) => {
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [countdownStr, setCountdownStr] = useState('15:00');
+  const [showInfo, setShowInfo] = useState<boolean>(false);
+  const [countdownStr, setCountdownStr] = useState<string>('15:00');
 
-  // Format mm:ss remaining in 15-minute slot
   useEffect(() => {
     const updateCountdown = () => {
       const now = Date.now();
-      const msRemaining = CYCLE_MS - (now % CYCLE_MS);
+      const msRemaining = WEATHER_CYCLE_MS - (now % WEATHER_CYCLE_MS);
       const m = Math.floor(msRemaining / 60000);
       const s = Math.floor((msRemaining % 60000) / 1000);
       setCountdownStr(`${m}:${s < 10 ? '0' : ''}${s}`);
@@ -313,113 +377,96 @@ export const CityWeatherWidget: React.FC<CityWeatherWidgetProps> = ({
     return () => clearInterval(interval);
   }, []);
 
-  const info = WEATHER_DATA[currentWeather];
-
-  const handleToggle = () => {
-    soundEffects.playSelect();
-    setShowDropdown(prev => !prev);
-  };
-
-  const handlePickCondition = (cond: WeatherCondition) => {
-    soundEffects.playSelect();
-    onSelectWeather(cond);
-    setShowDropdown(false);
-  };
-
-  const handleResetToAuto = () => {
-    soundEffects.playSelect();
-    onSelectWeather(null);
-    setShowDropdown(false);
-  };
+  const info = WEATHER_DATA[currentWeather] || WEATHER_DATA.sunny;
 
   return (
     <div className="relative pointer-events-auto">
-      {/* Weather Header Badge */}
+      {/* Weather Header Badge (Display only, no manual override) */}
       <button
         id="city-weather-widget-btn"
-        onClick={handleToggle}
+        onClick={() => {
+          soundEffects.playSelect();
+          setShowInfo(prev => !prev);
+        }}
         className={`flex items-center gap-1.5 px-3 py-2 rounded-2xl border text-xs font-black shadow-lg transition active:scale-95 cursor-pointer shrink-0 ${
           currentWeather === 'sunny'
             ? 'bg-gradient-to-r from-amber-500/90 to-yellow-600/90 border-amber-400 text-white shadow-amber-500/25'
-            : currentWeather === 'rainy'
+            : currentWeather === 'rainy' || currentWeather === 'thunderstorm'
             ? 'bg-gradient-to-r from-blue-700/90 to-slate-800/90 border-sky-400 text-sky-100 shadow-blue-500/25'
-            : 'bg-gradient-to-r from-cyan-600/90 to-blue-800/90 border-cyan-300 text-cyan-50 shadow-cyan-500/25'
+            : currentWeather === 'snowy'
+            ? 'bg-gradient-to-r from-cyan-600/90 to-blue-800/90 border-cyan-300 text-cyan-50 shadow-cyan-500/25'
+            : currentWeather === 'foggy'
+            ? 'bg-gradient-to-r from-slate-600/90 to-slate-800/90 border-slate-400 text-slate-100 shadow-slate-500/25'
+            : 'bg-gradient-to-r from-emerald-600/90 to-teal-800/90 border-emerald-400 text-emerald-50 shadow-emerald-500/25'
         }`}
-        title={`Weather: ${info.label} (${info.tempCelsius}°C). Cycles every 15 min. Click to change.`}
+        title={`Weather: ${info.label} (${formatTemperature(info.tempCelsius, tempUnit)}). Changes randomly every 15 min.`}
       >
         <span className="text-base filter drop-shadow">{info.icon}</span>
         <span className="font-extrabold hidden sm:inline">{info.label}</span>
-        <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-md bg-black/30 border border-white/20">
-          {info.tempCelsius}°C
+        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-black/30 border border-white/20">
+          {formatTemperature(info.tempCelsius, tempUnit)}
         </span>
         <span className="text-[9px] font-mono text-white/80 hidden md:inline">
           ⏱️ {countdownStr}
         </span>
       </button>
 
-      {/* Popover Dropdown for Details & Instant Weather Toggling */}
-      {showDropdown && (
-        <div className="absolute top-full mt-2 left-0 w-72 bg-slate-900/95 backdrop-blur-md border border-slate-700/90 rounded-2xl shadow-2xl p-3.5 text-white z-[600] animate-in fade-in zoom-in-95 duration-150">
+      {/* Info Card Popover (Random Nature explained + Phone Weather App shortcut) */}
+      {showInfo && (
+        <div className="absolute top-full mt-2 left-0 w-72 bg-slate-900/95 backdrop-blur-md border border-slate-700/90 rounded-2xl shadow-2xl p-4 text-white z-[600] animate-in fade-in zoom-in-95 duration-150">
           <div className="flex items-center justify-between border-b border-slate-800 pb-2 mb-2.5">
             <div className="flex items-center gap-1.5">
-              <span className="text-xs font-bold text-slate-300">City Weather System</span>
-              <span className="text-[9px] font-mono bg-sky-500/20 text-sky-300 border border-sky-500/30 px-1.5 py-0.2 rounded">
-                15-Min Cycle
+              <span className="text-xs font-bold text-slate-200">City Microclimate</span>
+              <span className="text-[9px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded">
+                Random
               </span>
             </div>
             <span className="text-[10px] text-slate-400 font-mono">
-              Next: {countdownStr}
+              Next shift in: {countdownStr}
             </span>
           </div>
 
-          <p className="text-[11px] text-slate-300 mb-3 leading-snug">
-            Ambiance automatically alternates between <strong>Sunny</strong>, <strong>Rainy</strong>, and <strong>Snowy</strong> every 15 minutes. Select any condition below to test immediately:
-          </p>
-
-          <div className="space-y-1.5 mb-3">
-            {WEATHER_ORDER.map((cond) => {
-              const item = WEATHER_DATA[cond];
-              const isSelected = currentWeather === cond;
-              return (
-                <button
-                  key={cond}
-                  onClick={() => handlePickCondition(cond)}
-                  className={`w-full p-2 rounded-xl border text-left flex items-center justify-between transition cursor-pointer ${
-                    isSelected
-                      ? 'bg-sky-500/20 border-sky-400 ring-1 ring-sky-400/50 shadow'
-                      : 'bg-slate-800/80 border-slate-700/70 hover:bg-slate-800 hover:border-slate-600'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl">{item.icon}</span>
-                    <div>
-                      <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                        <span>{item.label}</span>
-                        <span className="text-[10px] text-amber-300">{item.tempCelsius}°C</span>
-                      </div>
-                      <div className="text-[9px] text-slate-400 leading-tight line-clamp-1">
-                        {item.ambianceEffect}
-                      </div>
-                    </div>
-                  </div>
-
-                  {isSelected && (
-                    <span className="text-[9px] font-bold text-sky-400 bg-sky-950/70 px-1.5 py-0.5 rounded border border-sky-600/50 shrink-0">
-                      Active
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-800/80 border border-slate-700 mb-3">
+            <span className="text-3xl">{info.icon}</span>
+            <div>
+              <div className="text-sm font-extrabold text-white flex items-center gap-2">
+                <span>{info.label}</span>
+                <span className="text-xs text-amber-300 font-mono">
+                  {formatTemperature(info.tempCelsius, tempUnit)}
+                </span>
+              </div>
+              <div className="text-[11px] text-slate-300 leading-tight mt-0.5">
+                {info.description}
+              </div>
+            </div>
           </div>
 
-          {/* Reset to Auto 15-Minute Cycle */}
-          {isManualOverride && (
+          <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-300 mb-3">
+            <div className="flex items-center gap-1.5 p-2 rounded-lg bg-slate-800/50 border border-slate-700/60">
+              <Wind className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+              <span>Wind: {info.windSpeedKmh} km/h</span>
+            </div>
+            <div className="flex items-center gap-1.5 p-2 rounded-lg bg-slate-800/50 border border-slate-700/60">
+              <Droplets className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+              <span>Humidity: {info.humidity}%</span>
+            </div>
+          </div>
+
+          <p className="text-[10px] text-slate-400 mb-3 italic">
+            * The city weather changes randomly every 15 minutes. Check your Smartphone for full 5-day forecasts!
+          </p>
+
+          {onOpenPhoneWeather && (
             <button
-              onClick={handleResetToAuto}
-              className="w-full py-1.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-sky-300 text-[11px] font-bold border border-slate-700 transition cursor-pointer text-center"
+              onClick={() => {
+                soundEffects.playSelect();
+                setShowInfo(false);
+                onOpenPhoneWeather();
+              }}
+              className="w-full py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold shadow-lg transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
             >
-              🔄 Resume Automatic 15-Min Rotation
+              <Smartphone className="w-3.5 h-3.5 text-purple-200" />
+              <span>Open Phone Weather App</span>
             </button>
           )}
         </div>
