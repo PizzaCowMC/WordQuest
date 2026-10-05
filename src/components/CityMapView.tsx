@@ -152,7 +152,7 @@ export function generateMobModelHtml(monster: Monster, isDefeated: boolean, isFa
   return `
     <div class="relative flex flex-col items-center cursor-pointer group transform transition-transform hover:scale-120">
       
-      {/* Top Floating Rarity Crown & Level Pill */}
+      <!-- Top Floating Rarity Crown & Level Pill -->
       <div class="flex items-center gap-0.5 mb-0.5">
         <span class="px-1 py-0.2 rounded-full text-[8px] font-black uppercase border shadow-md ${rarityBadgeColor} flex items-center gap-0.5">
           <span>${rarityCrown}</span>
@@ -160,7 +160,7 @@ export function generateMobModelHtml(monster: Monster, isDefeated: boolean, isFa
         </span>
       </div>
 
-      {/* Animated Creature Model Body */}
+      <!-- Animated Creature Model Body -->
       <div class="relative">
         <!-- Glowing Pulsing Aura Ring -->
         <div class="absolute -inset-1.5 rounded-2xl opacity-80 blur-xs animate-pulse" style="background-color: ${monster.auraColor || monster.spriteColor}"></div>
@@ -175,12 +175,12 @@ export function generateMobModelHtml(monster: Monster, isDefeated: boolean, isFa
         </div>
       </div>
 
-      {/* Mini HP Lifebar */}
+      <!-- Mini HP Lifebar -->
       <div class="w-10 h-1.5 bg-slate-900/90 rounded-full overflow-hidden border border-slate-700 mt-1 p-0.2 shadow">
         <div class="w-full h-full bg-gradient-to-r from-emerald-400 to-green-500 rounded-full"></div>
       </div>
 
-      {/* Monster Name & Element Pill */}
+      <!-- Monster Name & Element Pill -->
       <div class="px-1.5 py-0.2 mt-0.5 rounded-md bg-slate-900/95 border border-slate-700/80 text-[8px] font-extrabold text-white whitespace-nowrap shadow-lg flex items-center gap-1">
         <span>${monster.name}</span>
         <span class="text-[7px] px-1 rounded font-bold bg-slate-800 text-amber-300 border border-slate-700">${monster.type}</span>
@@ -455,28 +455,28 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
     const playerHtml = `
       <div class="relative flex flex-col items-center pointer-events-none select-none">
         
-        {/* Companion Pet floating nearby */}
+        <!-- Companion Pet floating nearby -->
         <div class="absolute -top-8 -right-4 z-20 w-6 h-6 rounded-full bg-slate-900 border border-amber-400 shadow-lg flex items-center justify-center text-xs animate-bounce" style="animation-duration: 1.5s;">
           <span>${companionIcon}</span>
         </div>
 
-        {/* Dynamic Movement Glow Ripple */}
+        <!-- Dynamic Movement Glow Ripple -->
         <div class="absolute -inset-2 rounded-full opacity-60 blur-xs transition-opacity duration-200 ${isWalking ? 'bg-sky-400 animate-ping' : 'bg-transparent'}"></div>
 
-        {/* Player Avatar Circle */}
+        <!-- Player Avatar Circle -->
         <div class="relative w-9 h-9 rounded-full border-2 border-white shadow-2xl flex items-center justify-center text-base" style="background-color: ${outfitColor}">
           <span>${isMale ? '👦' : '👧'}</span>
           
-          {/* Level Badge */}
+          <!-- Level Badge -->
           <div class="absolute -bottom-1 -right-1 px-1 rounded-full bg-amber-400 text-slate-950 font-black text-[7px] border border-white shadow">
             ${student.level}
           </div>
         </div>
 
-        {/* Player Name Tag */}
-        <div class="px-2 py-0.2 mt-0.5 rounded-full bg-slate-900/95 border border-sky-400/80 text-[8px] font-extrabold text-white whitespace-nowrap shadow flex items-center gap-1">
-          <span>${student.name}</span>
-          <span class="text-[7px] text-sky-300">${activeVehicleOption.icon}</span>
+        <!-- Player Name Tag -->
+        <div class="px-2 py-0.5 mt-0.5 rounded-full bg-slate-900/95 border border-sky-400/80 text-[8px] font-extrabold text-white shadow-lg flex items-center gap-1 max-w-[130px]" title="${student.name}">
+          <span class="truncate max-w-[85px] leading-tight">${student.name}</span>
+          <span class="text-[7px] text-sky-300 shrink-0">${activeVehicleOption.icon}</span>
         </div>
       </div>
     `;
@@ -484,8 +484,8 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
     const playerIcon = L.divIcon({
       html: playerHtml,
       className: 'custom-player-marker',
-      iconSize: [36, 44],
-      iconAnchor: [18, 36]
+      iconSize: [44, 48],
+      iconAnchor: [22, 38]
     });
 
     if (!playerMarkerRef.current) {
@@ -606,7 +606,6 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
   // Render & Update Physical Airport Terminal Marker
   useEffect(() => {
     if (!mapInstanceRef.current) return;
-
     if (airportMarkerRef.current) {
       airportMarkerRef.current.remove();
       airportMarkerRef.current = null;
@@ -614,24 +613,28 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
 
     const airport = currentCity.airport;
     if (airport) {
+      const cityMonsterIds = currentCity.monsters.map(m => m.id);
+      const defeatedInCity = cityMonsterIds.filter(id => student.defeatedMonsterIds.includes(id)).length;
+      const isAirportCleared = cityMonsterIds.length > 0 ? defeatedInCity >= cityMonsterIds.length : true;
+
       const airportHtml = `
         <div class="relative flex flex-col items-center cursor-pointer group transform transition-transform hover:scale-120">
           
           <!-- Flashing runway beacon -->
-          <div class="absolute -top-2 w-3 h-3 rounded-full bg-emerald-400 border border-white animate-ping"></div>
+          <div class="absolute -top-2 w-3 h-3 rounded-full ${isAirportCleared ? 'bg-emerald-400' : 'bg-amber-400'} border border-white animate-ping"></div>
 
           <!-- Airport Concourse Badge -->
-          <div class="relative w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-600 via-sky-600 to-indigo-700 border-2 border-sky-300 shadow-2xl flex items-center justify-center text-2xl">
+          <div class="relative w-11 h-11 rounded-2xl ${isAirportCleared ? 'bg-gradient-to-br from-blue-600 via-sky-600 to-indigo-700 border-2 border-sky-300' : 'bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 border-2 border-amber-400/80'} shadow-2xl flex items-center justify-center text-2xl">
             <span>✈️</span>
           </div>
 
           <!-- Airport Name & Code -->
-          <div class="px-2 py-0.5 mt-0.5 rounded-lg bg-slate-900/95 border border-sky-400/80 text-[9px] font-black text-white whitespace-nowrap shadow-xl flex items-center gap-1">
+          <div class="px-2 py-0.5 mt-0.5 rounded-lg bg-slate-900/95 border ${isAirportCleared ? 'border-sky-400/80 text-white' : 'border-amber-400/70 text-slate-200'} text-[9px] font-black whitespace-nowrap shadow-xl flex items-center gap-1">
             <span>${airport.name}</span>
             <span class="px-1 rounded bg-sky-500/30 text-sky-300 text-[8px] font-mono">${airport.code}</span>
           </div>
-          <div class="text-[7px] font-extrabold uppercase tracking-wider text-sky-200 bg-sky-950/80 px-1 rounded mt-0.5">
-            International Departure Concourse
+          <div class="text-[7px] font-extrabold uppercase tracking-wider ${isAirportCleared ? 'text-emerald-300 bg-emerald-950/80 border border-emerald-500/40' : 'text-amber-300 bg-amber-950/80 border border-amber-500/40'} px-1.5 py-0.2 rounded mt-0.5">
+            ${isAirportCleared ? '✅ Runway Cleared • Fly Now' : `🔒 Grounded (${defeatedInCity}/${cityMonsterIds.length})`}
           </div>
         </div>
       `;
@@ -654,7 +657,7 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
 
       airportMarkerRef.current = marker;
     }
-  }, [currentCity.airport, onOpenAirport]);
+  }, [currentCity.airport, currentCity.monsters, student.defeatedMonsterIds, onOpenAirport]);
 
   // Render & Update Monster Markers (Scaled and optimized for 20 mobs)
   useEffect(() => {
@@ -723,8 +726,8 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
             </div>
           </div>
 
-          <div class="px-1.5 py-0.2 mt-0.5 rounded-full bg-slate-900/95 border border-sky-400/60 text-[8px] font-bold text-sky-200 whitespace-nowrap shadow flex items-center gap-1">
-            <span>${player.name}</span>
+          <div class="px-1.5 py-0.5 mt-0.5 rounded-full bg-slate-900/95 border border-sky-400/60 text-[8px] font-bold text-sky-200 shadow flex items-center gap-1 max-w-[120px]" title="${player.name}">
+            <span class="truncate max-w-[80px] leading-tight">${player.name}</span>
           </div>
         </div>
       `;
@@ -1069,11 +1072,24 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
                 soundEffects.playSelect();
                 onOpenAirport();
               }}
-              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-2xl bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-500 hover:to-sky-500 border border-sky-400 text-white text-xs font-black shadow-lg shadow-sky-500/20 transition active:scale-95 cursor-pointer shrink-0"
-              title={`Enter ${currentCity.airport?.name || currentCity.name + ' Airport'} Terminal`}
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-2xl border text-xs font-black shadow-lg transition active:scale-95 cursor-pointer shrink-0 ${
+                allDefeated
+                  ? 'bg-gradient-to-r from-emerald-600 to-sky-600 hover:from-emerald-500 hover:to-sky-500 border-emerald-400 text-white shadow-emerald-500/20 animate-pulse'
+                  : 'bg-gradient-to-r from-slate-800 to-slate-850 hover:from-slate-750 hover:to-slate-800 border-slate-700 text-slate-300'
+              }`}
+              title={allDefeated ? `Airport Runway Cleared! Ready to fly to ${secondCity.name}` : `Airport Terminal (${defeatedCount}/${totalMonsters} Monsters Cleared - Finish city to fly)`}
             >
-              <Plane className="w-4 h-4 text-sky-200 shrink-0" />
+              <Plane className={`w-4 h-4 shrink-0 ${allDefeated ? 'text-emerald-300' : 'text-slate-400'}`} />
               <span className="hidden sm:inline">Airport</span>
+              {!allDefeated ? (
+                <span className="text-[10px] text-amber-400 font-mono bg-amber-950/60 px-1 rounded border border-amber-500/30">
+                  {defeatedCount}/{totalMonsters}
+                </span>
+              ) : (
+                <span className="text-[10px] text-emerald-300 font-mono bg-emerald-950/60 px-1 rounded border border-emerald-500/40">
+                  FLY ✈️
+                </span>
+              )}
             </button>
           )}
 

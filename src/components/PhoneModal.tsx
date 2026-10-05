@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { StudentProfile, CityData, VehicleType, TransitStation, WeatherCondition } from '../types';
 import { AVATAR_OPTIONS, OUTFIT_COLORS, ACCESSORY_OPTIONS, VEHICLE_OPTIONS, TRANSIT_TICKETS } from '../data/transitData';
+import { APP_VERSION } from '../data/updateLogs';
 import { 
   WEATHER_DATA, 
   WEATHER_CYCLE_MS, 
@@ -251,7 +252,7 @@ export const PhoneModal: React.FC<PhoneModalProps> = ({
                         WordQuest OS
                       </span>
                       <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-sky-500/20 text-sky-300 border border-sky-400/30">
-                        v1.9.5
+                        v{APP_VERSION}
                       </span>
                     </div>
                     <div className="text-xs text-slate-300 mt-0.5">
@@ -448,7 +449,7 @@ export const PhoneModal: React.FC<PhoneModalProps> = ({
                       🚀
                     </div>
                     <span className="text-xs font-bold text-slate-200">Updates</span>
-                    <span className="text-[9px] text-emerald-300 font-mono -mt-1 font-semibold">v1.9.6 Logs</span>
+                    <span className="text-[9px] text-emerald-300 font-mono -mt-1 font-semibold">v{APP_VERSION}</span>
                   </button>
 
                 </div>

@@ -15,7 +15,10 @@ import {
   Search, 
   Compass, 
   Sparkles, 
-  UserCheck 
+  UserCheck,
+  Lock,
+  AlertTriangle,
+  RotateCcw
 } from 'lucide-react';
 
 interface AirportTerminalModalProps {
@@ -33,20 +36,42 @@ export const AirportTerminalModal: React.FC<AirportTerminalModalProps> = ({
   onLaunchFlight,
   onClose
 }) => {
+  // Check city monster completion status
+  const totalMonsters = currentCity.monsters.length;
+  const defeatedCount = currentCity.monsters.filter(m => student.defeatedMonsterIds.includes(m.id)).length;
+  const isCityFinished = totalMonsters > 0 ? defeatedCount >= totalMonsters : true;
+  const monstersRemaining = Math.max(0, totalMonsters - defeatedCount);
+
+  // Next sequential city on the world tour
+  const nextCityIndex = (student.currentCityIndex + 1) % allCities.length;
+  const nextCity = allCities[nextCityIndex] || allCities[0];
+
   // Boarding Steps: 1: 'destinations' -> 2: 'checkin' -> 3: 'security' -> 4: 'gate'
   const [step, setStep] = useState<'destinations' | 'checkin' | 'security' | 'gate'>('destinations');
-  const [selectedDestination, setSelectedDestination] = useState<CityData>(() => {
-    const nextIdx = (student.currentCityIndex + 1) % allCities.length;
-    return allCities[nextIdx] || allCities[0];
-  });
+  const [selectedDestination, setSelectedDestination] = useState<CityData>(nextCity);
   const [searchQuery, setSearchQuery] = useState('');
   const [seatChoice, setSeatChoice] = useState<'window' | 'aisle'>('window');
   const [checkinAnswered, setCheckinAnswered] = useState(false);
   const [securityAnswered, setSecurityAnswered] = useState(false);
   const [baggageWeighed, setBaggageWeighed] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const airportName = currentCity.airport?.name || `${currentCity.name} International Airport`;
   const airportCode = currentCity.airport?.code || currentCity.name.substring(0, 3).toUpperCase();
+
+  // Determine if a destination is unlocked:
+  // - Next city is unlocked ONLY IF current city is finished!
+  // - Previously visited cities are unlocked for revisiting
+  // - All other cities are locked (cannot skip ahead)
+  const isCityUnlocked = (city: CityData) => {
+    if (city.id === nextCity.id) {
+      return isCityFinished;
+    }
+    if (student.visitedCities?.includes(city.id) && city.id !== currentCity.id) {
+      return true;
+    }
+    return false;
+  };
 
   const filteredCities = allCities.filter(c => 
     c.id !== currentCity.id && 
@@ -55,6 +80,16 @@ export const AirportTerminalModal: React.FC<AirportTerminalModalProps> = ({
   );
 
   const handleSelectCity = (city: CityData) => {
+    if (!isCityUnlocked(city)) {
+      soundEffects.playWrong();
+      if (city.id === nextCity.id) {
+        setErrorMessage(`⚠️ Flight to ${city.name} is restricted! You must defeat all ${totalMonsters} monsters in ${currentCity.name} first (${defeatedCount}/${totalMonsters} defeated).`);
+      } else {
+        setErrorMessage(`🔒 ${city.name} is locked! You must complete prior cities in order to unlock this destination.`);
+      }
+      return;
+    }
+    setErrorMessage('');
     soundEffects.playSelect();
     setSelectedDestination(city);
     setStep('checkin');
@@ -72,10 +107,18 @@ export const AirportTerminalModal: React.FC<AirportTerminalModalProps> = ({
   };
 
   const handleBoardFlight = () => {
+    if (!isCityUnlocked(selectedDestination)) {
+      soundEffects.playWrong();
+      setErrorMessage(`Cannot board: Flight to ${selectedDestination.name} requires finishing ${currentCity.name} first!`);
+      setStep('destinations');
+      return;
+    }
     soundEffects.playFlightTakeoff();
     updateMissionProgress('transit', 1);
     onLaunchFlight(selectedDestination);
   };
+
+  const canProceed = isCityUnlocked(selectedDestination);
 
   return (
     <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-slate-950/85 backdrop-blur-md p-3 sm:p-4 overflow-y-auto">
@@ -98,6 +141,15 @@ export const AirportTerminalModal: React.FC<AirportTerminalModalProps> = ({
                 <span className="px-2 py-0.5 rounded-full text-xs font-mono font-bold bg-sky-500/20 text-sky-300 border border-sky-500/40">
                   {airportCode}
                 </span>
+                {isCityFinished ? (
+                  <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                    <CheckCircle className="w-3 h-3" /> Runway Open
+                  </span>
+                ) : (
+                  <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    <Lock className="w-3 h-3" /> Grounded ({defeatedCount}/{totalMonsters})
+                  </span>
+                )}
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
                 Physical Airport Terminal • Passenger: <strong className="text-amber-300">{student.name}</strong> (Lv. {student.level})
@@ -118,9 +170,9 @@ export const AirportTerminalModal: React.FC<AirportTerminalModalProps> = ({
         <div className="grid grid-cols-4 gap-1.5 my-4">
           {[
             { key: 'destinations', label: '1. Departures', icon: '🛫' },
-            { key: 'checkin', label: '2. Check-In', icon: '🧳' },
-            { key: 'security', label: '3. Security', icon: '🛡️' },
-            { key: 'gate', label: '4. Boarding Gate', icon: '✈️' }
+            { key: 'checkin', label: '2. Check-In', icon: '🧳', locked: !canProceed },
+            { key: 'security', label: '3. Security', icon: '🛡️', locked: !canProceed },
+            { key: 'gate', label: '4. Boarding Gate', icon: '✈️', locked: !canProceed }
           ].map((s, idx) => {
             const isActive = step === s.key;
             const isPassed = 
@@ -136,10 +188,12 @@ export const AirportTerminalModal: React.FC<AirportTerminalModalProps> = ({
                     ? 'bg-sky-500/20 border-sky-400 text-sky-300 shadow-md ring-1 ring-sky-400/40'
                     : isPassed
                     ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                    : s.locked
+                    ? 'bg-slate-850/40 border-slate-800 text-slate-500 opacity-60'
                     : 'bg-slate-800/60 border-slate-700/60 text-slate-400'
                 }`}
               >
-                <span>{s.icon} {s.label}</span>
+                <span>{s.locked ? '🔒' : s.icon} {s.label}</span>
               </div>
             );
           })}
@@ -148,70 +202,225 @@ export const AirportTerminalModal: React.FC<AirportTerminalModalProps> = ({
         {/* STEP 1: DESTINATIONS DEPARTURE BOARD */}
         {step === 'destinations' && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-bold text-white flex items-center gap-1.5 font-['Fredoka',sans-serif]">
-                  <span>International Departures Board</span>
-                  <span className="text-[10px] text-sky-400 bg-sky-500/20 px-2 py-0.2 rounded-full border border-sky-500/30 font-mono">
-                    150 World Metropolises
-                  </span>
-                </h3>
-                <p className="text-xs text-slate-400">
-                  Select your next flight destination across 6 continents:
-                </p>
-              </div>
-
-              {/* Search Bar */}
-              <div className="relative w-44">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search city..."
-                  className="w-full pl-8 pr-2.5 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-hidden focus:border-sky-400"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-72 overflow-y-auto pr-1">
-              {filteredCities.slice(0, 18).map((city) => (
-                <button
-                  key={city.id}
-                  onClick={() => handleSelectCity(city)}
-                  className={`p-3 rounded-2xl border text-left flex items-center justify-between transition group cursor-pointer ${
-                    selectedDestination.id === city.id
-                      ? 'bg-sky-500/20 border-sky-400 text-white ring-1 ring-sky-400/40'
-                      : 'bg-slate-800/80 hover:bg-slate-750 border-slate-700 text-slate-300'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <span className="text-2xl">🌍</span>
-                    <div>
-                      <div className="font-bold text-xs text-white group-hover:text-sky-300 transition">
-                        {city.name}
+            
+            {/* Airspace Clearance / Restriction Banner */}
+            {!isCityFinished ? (
+              <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs animate-in fade-in">
+                <div className="flex items-start gap-2.5">
+                  <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 shrink-0 mt-0.5">
+                    <Lock className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-amber-300 text-sm flex items-center gap-1.5">
+                      <span>Airspace Restricted • Finish City to Fly</span>
+                    </div>
+                    <p className="text-slate-300 mt-0.5 leading-relaxed">
+                      You must finish <strong className="text-white">{currentCity.name}</strong> before flying to the next city! Defeat all roaming monsters to open international runways.
+                    </p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden border border-slate-700 max-w-xs">
+                        <div 
+                          className="h-full bg-gradient-to-r from-amber-500 to-amber-400 rounded-full transition-all duration-300"
+                          style={{ width: `${Math.round((defeatedCount / Math.max(1, totalMonsters)) * 100)}%` }}
+                        />
                       </div>
-                      <div className="text-[10px] text-slate-400">
-                        {city.country} • {city.airport?.code || 'WQ'}
-                      </div>
+                      <span className="text-[11px] font-mono font-bold text-amber-400">
+                        {defeatedCount}/{totalMonsters} Defeated ({monstersRemaining} remaining)
+                      </span>
                     </div>
                   </div>
-                  <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-sky-400 group-hover:translate-x-0.5 transition" />
+                </div>
+                <button
+                  onClick={onClose}
+                  className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shrink-0 self-start sm:self-center transition shadow cursor-pointer active:scale-95"
+                >
+                  Return to Streets
                 </button>
-              ))}
+              </div>
+            ) : (
+              <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-3 text-xs animate-in fade-in">
+                <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 shrink-0">
+                  <CheckCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="font-bold text-emerald-300 text-sm flex items-center gap-1.5">
+                    <span>Airspace Cleared • International Departure Approved!</span>
+                  </div>
+                  <p className="text-slate-300 mt-0.5 leading-relaxed">
+                    All {totalMonsters} monsters in <strong className="text-white">{currentCity.name}</strong> defeated! Boarding gate is open for your next flight to <strong className="text-amber-300">{nextCity.name}</strong>.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Error Message Toast */}
+            {errorMessage && (
+              <div className="p-2.5 rounded-xl bg-red-500/15 border border-red-500/40 text-red-300 text-xs font-semibold flex items-center gap-2 animate-pulse">
+                <AlertTriangle className="w-4 h-4 shrink-0 text-red-400" />
+                <span>{errorMessage}</span>
+              </div>
+            )}
+
+            {/* Official Tour Route Hero Card (Next City) */}
+            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-slate-850 to-slate-800 border border-slate-700/80 shadow-md">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-black uppercase tracking-wider text-sky-400 flex items-center gap-1 font-mono">
+                  <Compass className="w-3.5 h-3.5" />
+                  Scheduled World Tour Stop #{nextCityIndex + 1}
+                </span>
+                {isCityFinished ? (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                    ✓ Clearance Granted
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1">
+                    <Lock className="w-2.5 h-2.5" /> Locked (Finish City First)
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-2xl bg-sky-500/20 border border-sky-400/40 flex items-center justify-center text-2xl">
+                    🌍
+                  </div>
+                  <div>
+                    <h4 className="text-base font-black text-white font-['Fredoka',sans-serif]">
+                      {nextCity.name}
+                    </h4>
+                    <p className="text-xs text-slate-400">
+                      {nextCity.country} • Airport: {nextCity.airport?.code || nextCity.name.substring(0, 3).toUpperCase()}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => handleSelectCity(nextCity)}
+                  disabled={!isCityFinished}
+                  className={`px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 transition ${
+                    isCityFinished
+                      ? 'bg-sky-500 hover:bg-sky-400 text-slate-950 shadow-md cursor-pointer active:scale-95'
+                      : 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
+                  }`}
+                >
+                  {isCityFinished ? (
+                    <>
+                      <span>Select Flight to {nextCity.name}</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="w-3.5 h-3.5" />
+                      <span>Locked ({defeatedCount}/{totalMonsters})</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
 
+            {/* Departures Board List */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <h3 className="text-sm font-bold text-white flex items-center gap-1.5 font-['Fredoka',sans-serif]">
+                    <span>World Tour Flight Schedule</span>
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      (Cities must be unlocked sequentially)
+                    </span>
+                  </h3>
+                </div>
+
+                {/* Search Bar */}
+                <div className="relative w-44">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search destination..."
+                    className="w-full pl-8 pr-2.5 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-hidden focus:border-sky-400"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1">
+                {filteredCities.map((city) => {
+                  const isNext = city.id === nextCity.id;
+                  const isVisited = student.visitedCities?.includes(city.id);
+                  const unlocked = isCityUnlocked(city);
+                  const isSelected = selectedDestination.id === city.id;
+
+                  return (
+                    <button
+                      key={city.id}
+                      onClick={() => handleSelectCity(city)}
+                      className={`p-2.5 rounded-2xl border text-left flex items-center justify-between transition group ${
+                        isSelected && unlocked
+                          ? 'bg-sky-500/20 border-sky-400 text-white ring-1 ring-sky-400/40 cursor-pointer'
+                          : unlocked
+                          ? 'bg-slate-800/80 hover:bg-slate-750 border-slate-700 text-slate-300 cursor-pointer'
+                          : 'bg-slate-900/60 border-slate-800/80 text-slate-500 opacity-60 hover:opacity-80 cursor-pointer'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="text-xl shrink-0">
+                          {unlocked ? (isNext ? '🛫' : '🌍') : '🔒'}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="font-bold text-xs text-white truncate flex items-center gap-1.5">
+                            <span className="truncate">{city.name}</span>
+                            {isNext && (
+                              <span className="text-[9px] px-1.5 py-0.2 rounded font-mono font-bold bg-sky-500/20 text-sky-300 shrink-0">
+                                NEXT
+                              </span>
+                            )}
+                            {isVisited && (
+                              <span className="text-[9px] px-1.5 py-0.2 rounded font-mono font-bold bg-emerald-500/20 text-emerald-400 shrink-0">
+                                CLEARED
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[10px] text-slate-400 truncate">
+                            {city.country} • {city.airport?.code || 'WQ'}
+                            {!unlocked && ' • Locked'}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {unlocked ? (
+                        <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-sky-400 group-hover:translate-x-0.5 transition shrink-0" />
+                      ) : (
+                        <Lock className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Bottom Controls */}
             <div className="flex items-center justify-between pt-2 border-t border-slate-800 text-xs">
               <span className="text-slate-400 font-mono text-[11px]">
                 Active Origin: <strong>{currentCity.name}</strong> ({airportCode})
               </span>
-              <button
-                onClick={() => setStep('checkin')}
-                className="px-5 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs shadow-lg shadow-sky-500/20 flex items-center gap-1.5 cursor-pointer"
-              >
-                <span>Proceed with {selectedDestination.name}</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
+              
+              {canProceed ? (
+                <button
+                  onClick={() => setStep('checkin')}
+                  className="px-5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs shadow-lg shadow-sky-500/20 flex items-center gap-1.5 cursor-pointer active:scale-95 transition"
+                >
+                  <span>Proceed with {selectedDestination.name}</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              ) : (
+                <button
+                  disabled
+                  className="px-5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-500 font-bold text-xs flex items-center gap-1.5 cursor-not-allowed"
+                >
+                  <Lock className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Finish {currentCity.name} to Unlock Flight</span>
+                </button>
+              )}
             </div>
           </div>
         )}

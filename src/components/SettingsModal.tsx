@@ -257,7 +257,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </span>
               </div>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Review complete changelog from v1.0.0 through v1.9.6 including walking improvements.
+                Review complete changelog from v1.0.0 through v{APP_VERSION} including flight clearance and world tour updates.
               </p>
             </div>
 

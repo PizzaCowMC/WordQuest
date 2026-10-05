@@ -327,6 +327,17 @@ export default function App() {
 
   // Launch Flight from Physical Airport Terminal
   const handleLaunchAirportFlight = (targetCity: CityData) => {
+    const totalMonsters = currentCity.monsters.length;
+    const defeatedCount = currentCity.monsters.filter(m => student?.defeatedMonsterIds.includes(m.id)).length;
+    const isCityFinished = totalMonsters > 0 ? defeatedCount >= totalMonsters : true;
+    const nextCity = allCities[(currentCityIndex + 1) % allCities.length];
+    const isAllowed = (isCityFinished && targetCity.id === nextCity.id) || (student?.visitedCities.includes(targetCity.id));
+
+    if (!isAllowed) {
+      soundEffects.playWrong();
+      return;
+    }
+
     setCustomFlightDestination(targetCity);
     setShowAirportModal(false);
     setShowFlightModal(true);

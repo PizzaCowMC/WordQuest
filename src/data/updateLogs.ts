@@ -7,9 +7,23 @@ export interface UpdateLogEntry {
   changes: string[];
 }
 
-export const APP_VERSION = '1.12.0';
+export const APP_VERSION = '1.13.1';
 
 export const UPDATE_LOGS: UpdateLogEntry[] = [
+  {
+    version: '1.13.1',
+    releaseDate: 'October 2026',
+    title: 'Sequential World Tour, Airport Flight Clearance & Player Name Polish',
+    highlight: 'Enforced authentic world tour progression where trainers must clear all city monsters before taking off, added live airport runway clearance indicators, and polished map player nameplates!',
+    tag: 'Feature',
+    changes: [
+      'Sequential City Progression: Replaced unrestricted city jumping with linear world tour progression. Trainers can only advance to the next scheduled metropolis in sequence once the current city is finished.',
+      'Airport Runway Clearance Gating: International flight clearance is now strictly tied to city defense. Local runways are grounded until all roaming monsters in the current metropolis are defeated.',
+      'Live Airport Map Indicators: Physical Airport Terminal map markers and top-bar shortcuts now show real-time monster progress badges (e.g. "🔒 Grounded (X/Y)" vs "✅ Runway Cleared • Fly Now").',
+      'Revisitation Route: Cleared and previously visited destinations remain open for exploration and review, while unreached cities are locked.',
+      'Player Nameplate Cleanup: Removed stray template comments and added responsive text truncation with tooltip support for clean player and creature tags.'
+    ]
+  },
   {
     version: '1.12.0',
     releaseDate: 'October 2026',

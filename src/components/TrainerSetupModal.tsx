@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { STARTERS, INITIAL_CITIES } from '../data/gameData';
 import { StarterCompanion, CityData, TrainerAppearance } from '../types';
 import { AVATAR_OPTIONS, OUTFIT_COLORS, ACCESSORY_OPTIONS } from '../data/transitData';
+import { APP_VERSION } from '../data/updateLogs';
 import { soundEffects } from '../utils/audio';
 import { Sparkles, MapPin, Plane, ArrowRight, User, Globe2, Palette, Shield, Compass } from 'lucide-react';
 
@@ -74,7 +75,7 @@ export const TrainerSetupModal: React.FC<TrainerSetupModalProps> = ({
             150-City Global Monster English Quest (50 Mobs Per City)
           </span>
           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-800 text-sky-400 border border-slate-700">
-            v1.11.0
+            v{APP_VERSION}
           </span>
         </div>
 
