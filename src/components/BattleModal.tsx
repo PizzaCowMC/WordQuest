@@ -320,14 +320,15 @@ export const BattleModal: React.FC<BattleModalProps> = ({
                   />
                   {/* Outer Shield Frame */}
                   <div 
-                    className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl border-2 border-white/90 shadow-2xl flex flex-col items-center justify-center animate-bounce duration-1000"
+                    className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-3xl border-2 border-white/90 shadow-2xl flex flex-col items-center justify-center animate-bounce duration-1000"
                     style={{ backgroundColor: monster.spriteColor }}
                   >
-                    <span className="text-4xl sm:text-5xl filter drop-shadow select-none">
+                    <span className="text-4xl sm:text-5xl filter drop-shadow select-none transform hover:scale-110 transition-transform">
                       {monster.avatarIcon}
                     </span>
-                    <span className="absolute -bottom-2 px-1.5 py-0.5 rounded-full text-[9px] font-black bg-slate-950 text-amber-300 border border-amber-400/50 shadow">
-                      {monster.type}
+                    <span className="absolute -top-1.5 -right-1.5 text-xs animate-pulse">✨</span>
+                    <span className="absolute -bottom-2 px-2 py-0.5 rounded-full text-[9px] font-black bg-slate-950 text-amber-300 border border-amber-400/50 shadow flex items-center gap-1">
+                      <span>{monster.type}</span>
                     </span>
                   </div>
                 </div>

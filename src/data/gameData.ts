@@ -62,8 +62,8 @@ const BASE_CITIES: any[] = [
         position: [51.5013, -0.1249],
         streetName: 'Westminster Bridge Road',
         spriteColor: '#F59E0B',
-        description: 'A crackling lightning monster guarding the bridge near Big Ben!',
-        avatarIcon: '⚡',
+        description: 'A cheerful crackling spark hamster bouncing cheerfully near Big Ben!',
+        avatarIcon: '🐹',
         questions: [
           {
             id: 'lon-1-q1',
@@ -117,8 +117,8 @@ const BASE_CITIES: any[] = [
         position: [51.5080, -0.1281],
         streetName: 'Trafalgar Square / The Strand',
         spriteColor: '#0EA5E9',
-        description: 'A splashing river water sprite by the grand fountains of Trafalgar Square!',
-        avatarIcon: '💧',
+        description: 'An adorable bubbly river seal pup splashing near the grand fountains of Trafalgar Square!',
+        avatarIcon: '🦭',
         questions: [
           {
             id: 'lon-2-q1',
@@ -172,8 +172,8 @@ const BASE_CITIES: any[] = [
         position: [51.5101, -0.1345],
         streetName: 'Piccadilly Circus / Shaftesbury Ave',
         spriteColor: '#EF4444',
-        description: 'A fiery neon beast glowing brighter than the famous Piccadilly billboards!',
-        avatarIcon: '🔥',
+        description: 'A playful ember fox cub with glowing fluffy ears lighting up Piccadilly Circus!',
+        avatarIcon: '🦊',
         questions: [
           {
             id: 'lon-3-q1',
@@ -528,8 +528,8 @@ const BASE_CITIES: any[] = [
         position: [48.8584, 2.2945],
         streetName: 'Champ de Mars Avenue',
         spriteColor: '#F472B6',
-        description: 'A dazzling fairy sparkling beneath the golden lights of the Eiffel Tower!',
-        avatarIcon: '✨',
+        description: 'An adorable fairy unicorn prancing beneath the golden lights of the Eiffel Tower!',
+        avatarIcon: '🦄',
         questions: [
           {
             id: 'par-1-q1',
@@ -583,8 +583,8 @@ const BASE_CITIES: any[] = [
         position: [48.8530, 2.3499],
         streetName: 'Rue de la Cité (Notre Dame)',
         spriteColor: '#6B7280',
-        description: 'A stone-winged dragon perched high near the ancient cathedral bells!',
-        avatarIcon: '🗿',
+        description: 'A cute stone-winged baby dragon perched playfully near ancient cathedral bells!',
+        avatarIcon: '🐲',
         questions: [
           {
             id: 'par-2-q1',
@@ -651,8 +651,8 @@ const BASE_CITIES: any[] = [
         position: [40.7580, -73.9855],
         streetName: 'Times Square / Broadway 42nd St',
         spriteColor: '#F59E0B',
-        description: 'A pulsing cyber beast energized by giant digital Broadway billboards!',
-        avatarIcon: '🎭',
+        description: 'An energetic Broadway show pup dancing in the glowing Times Square lights!',
+        avatarIcon: '🐶',
         questions: [
           {
             id: 'ny-1-q1',
@@ -706,8 +706,8 @@ const BASE_CITIES: any[] = [
         position: [40.7644, -73.9730],
         streetName: 'Central Park South (59th St)',
         spriteColor: '#10B981',
-        description: 'A leafy giant tree guardian strolling along the edge of Central Park!',
-        avatarIcon: '🌳',
+        description: 'An adorable fluffy woodland squirrel spirit gathering acorns in Central Park!',
+        avatarIcon: '🐿️',
         questions: [
           {
             id: 'ny-2-q1',
@@ -774,8 +774,8 @@ const BASE_CITIES: any[] = [
         position: [41.8902, 12.4922],
         streetName: 'Via dei Fori Imperiali (Colosseum)',
         spriteColor: '#DC2626',
-        description: 'A mighty armored centurion monster holding a flaming gladius outside the Colosseum!',
-        avatarIcon: '🛡️',
+        description: 'A brave baby lion gladiator cub holding a tiny flaming shield outside the Colosseum!',
+        avatarIcon: '🦁',
         questions: [
           {
             id: 'rom-1-q1',
@@ -829,8 +829,8 @@ const BASE_CITIES: any[] = [
         position: [41.9009, 12.4833],
         streetName: 'Via delle Muratte (Trevi Fountain)',
         spriteColor: '#0284C7',
-        description: 'A magical fountain naiad splashing lucky coins into the air!',
-        avatarIcon: '🌊',
+        description: 'An adorable fountain seal pup splashing lucky coins into the air with its nose!',
+        avatarIcon: '🦭',
         questions: [
           {
             id: 'rom-2-q1',
@@ -1321,8 +1321,8 @@ const BASE_CITIES: any[] = [
         position: [37.4979, 127.0276],
         streetName: 'Gangnam-daero (Gangnam Station)',
         spriteColor: '#EC4899',
-        description: 'A stylish music-loving creature dancing to catchy K-pop rhythms on LED screens!',
-        avatarIcon: '🎧',
+        description: 'A stylish music-loving kitten wearing pink headphones and dancing to catchy rhythms!',
+        avatarIcon: '🐱',
         questions: [
           {
             id: 'seo-2-q1',
@@ -1389,8 +1389,8 @@ const BASE_CITIES: any[] = [
         position: [21.2766, -157.8275],
         streetName: 'Kalakaua Avenue (Waikiki Beach)',
         spriteColor: '#0284C7',
-        description: 'The ancient ocean turtle sovereign surfing atop turquoise Hawaiian breakers!',
-        avatarIcon: '🏄‍♂️',
+        description: 'An adorable green sea turtle baby surfing atop turquoise Hawaiian breakers!',
+        avatarIcon: '🐢',
         questions: [
           {
             id: 'hon-1-q1',
@@ -1444,8 +1444,8 @@ const BASE_CITIES: any[] = [
         position: [21.2620, -157.8057],
         streetName: 'Diamond Head Road',
         spriteColor: '#DC2626',
-        description: 'The volcanic dragon lord crowned in glowing molten lava at the summit of Diamond Head!',
-        avatarIcon: '🌋',
+        description: 'A cute little fire-crested baby drake playing near the summit of Diamond Head!',
+        avatarIcon: '🐲',
         questions: [
           {
             id: 'hon-2-q1',

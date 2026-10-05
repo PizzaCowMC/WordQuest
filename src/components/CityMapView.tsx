@@ -171,6 +171,7 @@ export function generateMobModelHtml(monster: Monster, isDefeated: boolean, isFa
           style="background: radial-gradient(circle at 35% 35%, #ffffff 0%, ${monster.spriteColor} 70%, #0f172a 100%); animation-duration: 2.2s; transform: ${flip};"
         >
           <span class="text-xl filter drop-shadow select-none leading-none">${monster.avatarIcon}</span>
+          <span class="absolute -top-1 -right-1 text-[8px] animate-pulse">✨</span>
           ${elementEffect}
         </div>
       </div>

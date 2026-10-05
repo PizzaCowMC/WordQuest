@@ -1,5 +1,6 @@
 import { CityData, CityBuilding, CityAirport, Monster, Question, ElementType, MonsterRarity } from '../types';
 import { INITIAL_CITIES } from './gameData';
+import { getQuestionsForMonster } from './masterQuestionBank';
 
 export interface WorldCityMeta {
   id: string;
@@ -87,15 +88,15 @@ const QUESTION_TEMPLATES = [
 ];
 
 const MOB_AVATARS: Record<ElementType, string[]> = {
-  Electric: ['⚡', '🐯', '🦊', '🤖', '⚡'],
-  Fire: ['🔥', '🦁', '🐉', '🌋', '🦅'],
-  Water: ['💧', '🐬', '🦈', '🧜‍♂️', '🌊'],
-  Grass: ['🌿', '🦙', '🦌', '🌳', '☘️'],
-  Wind: ['💨', '🦅', '🪁', '🕊️', '🌬️'],
-  Psychic: ['🔮', '🦉', '🧙', '👁️', '✨'],
-  Ice: ['❄️', '🐻‍❄️', '🐧', '🧊', '🐺'],
-  Dragon: ['🐉', '🐲', '👑', '🦖', '✨'],
-  Fairy: ['🧚', '🦄', '🌸', '💫', '🐰']
+  Electric: ['🐹', '🦊', '🐱', '🐶', '🐿️'],
+  Fire: ['🦊', '🐶', '🐱', '🦎', '🐼'],
+  Water: ['🦭', '🦦', '🐬', '🐧', '🐳'],
+  Grass: ['🐰', '🦝', '🐿️', '🦌', '🦔'],
+  Wind: ['🦉', '🐥', '🕊️', '🐿️', '🦊'],
+  Psychic: ['🐱', '🐰', '🦊', '🦉', '🦄'],
+  Ice: ['🐻‍❄️', '🐧', '🦭', '🐰', '🦊'],
+  Dragon: ['🐲', '🦎', '🦕', '🐢', '🐊'],
+  Fairy: ['🦄', '🐰', '🐱', '🧸', '🐶']
 };
 
 const ELEMENT_COLORS: Record<ElementType, { sprite: string; aura: string }> = {
@@ -756,9 +757,9 @@ export function getCity20Mobs(cityId: string, baseCity: CityData, cityName: stri
     'Blaze', 'Storm', 'Thunder', 'Astral', 'Vortex', 'Radiant', 'Zenith', 'Titan'
   ];
   const mobSuffixes = [
-    'Sprite', 'Hound', 'Golem', 'Fox', 'Hawk', 'Beast', 'Titan', 'Draco', 
-    'Serpent', 'Wisp', 'Ranger', 'Walker', 'Scout', 'Sentinel', 'Lynx', 'Griffin', 
-    'Phantom', 'Colossus', 'Warden', 'Stalker', 'Falcon', 'Specter'
+    'Cub', 'Puff', 'Fox', 'Sprite', 'Bunny', 'Otter', 'Pip', 'Whiskers', 
+    'Fawn', 'Wisp', 'Scout', 'Kit', 'Chick', 'Pika', 'Lynx', 'Griffin', 
+    'Buddy', 'Drake', 'Sprout', 'Chirper', 'Paw', 'Specter'
   ];
 
   const result: Monster[] = [];
@@ -807,11 +808,7 @@ export function getCity20Mobs(cityId: string, baseCity: CityData, cityName: stri
       avatarIcon: avatar,
       rarity: 'Epic',
       lessonTopic: `Monument Lore: ${bldg.name}`,
-      questions: QUESTION_TEMPLATES.map((tmpl, qIdx) => ({
-        id: `${bldgMobId}-q${qIdx + 1}`,
-        category: tmpl.category,
-        ...tmpl.makeQuestion(cityName)
-      }))
+      questions: getQuestionsForMonster(cityIndex, 20 + bIdx, 4)
     });
   });
 
@@ -846,11 +843,7 @@ export function getCity20Mobs(cityId: string, baseCity: CityData, cityName: stri
       avatarIcon: avatar,
       rarity: slot.rarity,
       lessonTopic: `${cityName} Street Exploration #${mobNum}`,
-      questions: QUESTION_TEMPLATES.slice(0, 4).map((tmpl, qIdx) => ({
-        id: `${mobId}-q${qIdx + 1}`,
-        category: tmpl.category,
-        ...tmpl.makeQuestion(cityName)
-      }))
+      questions: getQuestionsForMonster(cityIndex, mobNum, slot.rarity === 'Legendary' ? 5 : 4)
     });
   }
 

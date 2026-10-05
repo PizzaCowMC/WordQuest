@@ -81,15 +81,21 @@ export const MultiplayerChatDrawer: React.FC<MultiplayerChatDrawerProps> = ({
   const otherPlayers = players.filter((p) => p.cityIndex !== currentCityIndex);
   const totalOnline = players.length + 1; // including local player
 
-  // Deduplicate announcements so repeated "entered the world" is never shown twice in chat
+  // Deduplicate messages by ID and signature so text is NEVER rendered twice
   const displayedMessages = React.useMemo(() => {
-    const seenAnnouncements = new Set<string>();
+    const seenIds = new Set<string>();
+    const seenSignatures = new Set<string>();
+
     return chatMessages.filter((msg) => {
-      if (msg.isAnnouncement) {
-        const key = msg.text.trim().toLowerCase();
-        if (seenAnnouncements.has(key)) return false;
-        seenAnnouncements.add(key);
-      }
+      if (!msg || !msg.text) return false;
+      if (seenIds.has(msg.id)) return false;
+      seenIds.add(msg.id);
+
+      // Signature: sender + text + 3-second time window
+      const signature = `${msg.senderId}:${msg.text.trim()}:${Math.floor(msg.timestamp / 3000)}`;
+      if (seenSignatures.has(signature)) return false;
+      seenSignatures.add(signature);
+
       return true;
     });
   }, [chatMessages]);
@@ -344,7 +350,7 @@ export const MultiplayerChatDrawer: React.FC<MultiplayerChatDrawerProps> = ({
                 <div className="p-2.5 rounded-xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-between mb-1.5">
                   <div className="flex items-center gap-2.5">
                     <div className="w-7 h-7 rounded-lg bg-sky-500 text-white flex items-center justify-center text-sm font-bold">
-                      {student.appearance.avatar === 'boy' ? '👦' : '👧'}
+                      {student.appearance?.avatar || '🧒'}
                     </div>
                     <div>
                       <div className="font-bold text-white flex items-center gap-1.5">

@@ -59,6 +59,7 @@ export function useMultiplayer({ student, currentCity, cityIndex }: UseMultiplay
 
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const syncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastMoveSentRef = useRef<number>(0);
   const myPlayerIdRef = useRef<string>(getInitialPlayerId());
 
@@ -68,8 +69,91 @@ export function useMultiplayer({ student, currentCity, cityIndex }: UseMultiplay
 
   const hasStudent = Boolean(student);
 
+  // Helper to sync over HTTP REST API
+  const syncOverHttp = useCallback(async () => {
+    if (!stateRef.current.student) return;
+    try {
+      const myId = myPlayerIdRef.current;
+      const currentRoom = stateRef.current.room;
+      const res = await fetch(`/api/multiplayer/sync?room=${encodeURIComponent(currentRoom)}&playerId=${encodeURIComponent(myId)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.players) {
+          const remotePlayers: MultiplayerPlayer[] = data.players.filter((p: MultiplayerPlayer) => p.id !== myId);
+          setPlayers(remotePlayers);
+        }
+        if (data.messages && Array.isArray(data.messages)) {
+          setChatMessages((prev) => {
+            const map = new Map<string, ChatMessage>();
+            prev.forEach((m) => {
+              if (m && m.id) map.set(m.id, m);
+            });
+            data.messages.forEach((m: ChatMessage) => {
+              if (m && m.id) map.set(m.id, m);
+            });
+            return Array.from(map.values()).sort((a, b) => a.timestamp - b.timestamp).slice(-80);
+          });
+        }
+        if (data.activeDuel) {
+          if (data.activeDuel.status === 'pending' && data.activeDuel.opponentId === myId) {
+            setIncomingDuelInvite(data.activeDuel);
+          } else if (data.activeDuel.status === 'active') {
+            setActiveDuel(data.activeDuel);
+          } else if (data.activeDuel.status === 'finished') {
+            setDuelResult({ duel: data.activeDuel, winnerId: data.activeDuel.winnerId || 'tie' });
+          }
+        }
+        setStatus('connected');
+      }
+    } catch {
+      // ignore transient network errors
+    }
+  }, []);
+
+  // Connect WebSocket & start fallback sync
   const connect = useCallback(() => {
     if (!stateRef.current.student) return;
+
+    const myPlayerId = myPlayerIdRef.current;
+    const initialPlayer = {
+      id: myPlayerId,
+      name: stateRef.current.student.name || 'Explorer',
+      avatar: stateRef.current.student.appearance?.avatar || '🧒',
+      clothingColor: stateRef.current.student.appearance?.outfitColor || '#38bdf8',
+      companionId: stateRef.current.student.starter?.id || 'starter-electric',
+      cityIndex: stateRef.current.cityIndex,
+      cityName: stateRef.current.currentCity.name,
+      pos: {
+        lat: stateRef.current.currentCity.coordinates[0],
+        lng: stateRef.current.currentCity.coordinates[1],
+      },
+      facing: 'down',
+      vehicle: stateRef.current.student.activeVehicle || 'walk',
+      level: stateRef.current.student.level || 1,
+      title: stateRef.current.student.appearance?.title || 'Word Explorer',
+    };
+
+    fetch('/api/multiplayer/join', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ player: initialPlayer, room: stateRef.current.room }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.players) {
+          setPlayers(data.players.filter((p: MultiplayerPlayer) => p.id !== myPlayerId));
+        }
+        if (data.messages) {
+          setChatMessages((prev) => {
+            const map = new Map<string, ChatMessage>();
+            prev.forEach((m) => { if (m?.id) map.set(m.id, m); });
+            data.messages.forEach((m: ChatMessage) => { if (m?.id) map.set(m.id, m); });
+            return Array.from(map.values()).sort((a, b) => a.timestamp - b.timestamp).slice(-80);
+          });
+        }
+        setStatus('connected');
+      })
+      .catch(() => {});
 
     // Cleanup existing socket
     if (socketRef.current) {
@@ -79,8 +163,6 @@ export function useMultiplayer({ student, currentCity, cityIndex }: UseMultiplay
         // ignore
       }
     }
-
-    setStatus('connecting');
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.host;
@@ -95,42 +177,23 @@ export function useMultiplayer({ student, currentCity, cityIndex }: UseMultiplay
       ws.onopen = () => {
         setStatus('connected');
 
-        // Heartbeat ping every 25s
         pingInterval = setInterval(() => {
           if (ws.readyState === WebSocket.OPEN) {
             try {
               ws.send(JSON.stringify({ type: 'ping' }));
-            } catch {
-              // ignore
-            }
+            } catch {}
           }
-        }, 25000);
+        }, 20000);
 
-        // Send initial join payload
-        const myPlayerId = myPlayerIdRef.current;
         const joinPayload = {
           type: 'join',
           room: stateRef.current.room,
-          player: {
-            id: myPlayerId,
-            name: stateRef.current.student?.name || 'Explorer',
-            avatar: stateRef.current.student?.appearance?.avatar || 'boy',
-            clothingColor: stateRef.current.student?.appearance?.outfitColor || '#38bdf8',
-            companionId: stateRef.current.student?.starter?.id || 'starter-electric',
-            cityIndex: stateRef.current.cityIndex,
-            cityName: stateRef.current.currentCity.name,
-            pos: {
-              lat: stateRef.current.currentCity.coordinates[0],
-              lng: stateRef.current.currentCity.coordinates[1],
-            },
-            facing: 'down',
-            vehicle: stateRef.current.student?.activeVehicle || 'walk',
-            level: stateRef.current.student?.level || 1,
-            title: stateRef.current.student?.appearance?.title || 'Word Explorer',
-          },
+          player: initialPlayer,
         };
 
-        ws.send(JSON.stringify(joinPayload));
+        try {
+          ws.send(JSON.stringify(joinPayload));
+        } catch {}
       };
 
       ws.onmessage = (event) => {
@@ -144,8 +207,13 @@ export function useMultiplayer({ student, currentCity, cityIndex }: UseMultiplay
                 (p: MultiplayerPlayer) => p.id !== myId
               );
               setPlayers(remotePlayers);
-              if (data.messages) {
-                setChatMessages(data.messages);
+              if (data.messages && Array.isArray(data.messages)) {
+                setChatMessages((prev) => {
+                  const map = new Map<string, ChatMessage>();
+                  prev.forEach((m) => { if (m?.id) map.set(m.id, m); });
+                  data.messages.forEach((m: ChatMessage) => { if (m?.id) map.set(m.id, m); });
+                  return Array.from(map.values()).sort((a, b) => a.timestamp - b.timestamp).slice(-80);
+                });
               }
               break;
             }
@@ -194,9 +262,15 @@ export function useMultiplayer({ student, currentCity, cityIndex }: UseMultiplay
 
             case 'chat_message': {
               const msg: ChatMessage = data.message;
-              if (msg) {
+              if (msg && msg.id) {
                 setChatMessages((prev) => {
-                  if (prev.some((m) => m.id === msg.id)) return prev;
+                  // If message is already present (e.g. optimistic insert), update in place!
+                  const existingIdx = prev.findIndex((m) => m.id === msg.id);
+                  if (existingIdx >= 0) {
+                    const updated = [...prev];
+                    updated[existingIdx] = msg;
+                    return updated;
+                  }
                   return [...prev.slice(-99), msg];
                 });
               }
@@ -217,7 +291,6 @@ export function useMultiplayer({ student, currentCity, cityIndex }: UseMultiplay
                 })
               );
 
-              // Auto-clear emote after 4.5 seconds
               setTimeout(() => {
                 setPlayers((prev) =>
                   prev.map((p) => {
@@ -263,96 +336,204 @@ export function useMultiplayer({ student, currentCity, cityIndex }: UseMultiplay
 
       ws.onerror = () => {
         if (pingInterval) clearInterval(pingInterval);
-        setStatus('disconnected');
+        syncOverHttp();
       };
 
       ws.onclose = () => {
         if (pingInterval) clearInterval(pingInterval);
-        setStatus('disconnected');
-        // Exponential backoff or steady retry after 3 seconds
+        syncOverHttp();
         if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
         reconnectTimeoutRef.current = setTimeout(() => {
           connect();
-        }, 3500);
+        }, 4000);
       };
-    } catch (e) {
-      console.warn('WebSocket connection error:', e);
-      setStatus('disconnected');
+    } catch {
+      syncOverHttp();
       if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = setTimeout(() => {
         connect();
-      }, 4000);
+      }, 5000);
     }
-  }, [hasStudent, room]);
+  }, [hasStudent, room, syncOverHttp]);
 
   // Initial connection on student available
   useEffect(() => {
     connect();
+
+    if (syncIntervalRef.current) clearInterval(syncIntervalRef.current);
+    syncIntervalRef.current = setInterval(() => {
+      syncOverHttp();
+    }, 2500);
+
     return () => {
       if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+      if (syncIntervalRef.current) clearInterval(syncIntervalRef.current);
       if (socketRef.current) {
-        socketRef.current.close();
+        try {
+          socketRef.current.close();
+        } catch {}
       }
     };
-  }, [connect]);
+  }, [connect, syncOverHttp]);
 
   // Throttled movement emission
   const sendMovement = useCallback(
     (pos: { lat: number; lng: number }, facing: 'left' | 'right' | 'up' | 'down', vehicle: VehicleType) => {
       const now = Date.now();
-      if (now - lastMoveSentRef.current < 60) return; // throttle at ~16 updates/sec max
+      if (now - lastMoveSentRef.current < 60) return;
       lastMoveSentRef.current = now;
 
+      const payload = {
+        type: 'move',
+        id: myPlayerIdRef.current,
+        pos,
+        facing,
+        vehicle,
+        cityIndex: stateRef.current.cityIndex,
+        cityName: stateRef.current.currentCity.name,
+        room: stateRef.current.room,
+      };
+
       if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-        socketRef.current.send(
-          JSON.stringify({
-            type: 'move',
-            pos,
-            facing,
-            vehicle,
-            cityIndex: stateRef.current.cityIndex,
-            cityName: stateRef.current.currentCity.name,
-          })
-        );
+        try {
+          socketRef.current.send(JSON.stringify(payload));
+          return;
+        } catch {}
+      }
+
+      if (now % 3000 < 100) {
+        fetch('/api/multiplayer/move', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        }).catch(() => {});
       }
     },
     []
   );
 
-  // Send Chat message
+  // Send Chat message: EXACT ID preservation, NO duplicate sending
   const sendChat = useCallback((text: string) => {
-    if (!text.trim() || !socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
-    socketRef.current.send(
-      JSON.stringify({
-        type: 'chat',
-        text: text.trim(),
-      })
-    );
+    const trimmed = text.trim();
+    if (!trimmed) return;
+
+    const myId = myPlayerIdRef.current;
+    const senderName = stateRef.current.student?.name || 'Explorer';
+    const senderAvatar = stateRef.current.student?.appearance?.avatar || '🧒';
+    const currentRoom = stateRef.current.room;
+    const timestamp = Date.now();
+
+    // Unique deterministic message id generated once by the client
+    const messageId = `msg-${timestamp}-${Math.random().toString(36).substring(2, 8)}`;
+
+    const optimisticMsg: ChatMessage = {
+      id: messageId,
+      senderId: myId,
+      senderName,
+      senderAvatar,
+      text: trimmed,
+      timestamp,
+      room: currentRoom,
+    };
+
+    // 1. Add locally once (optimistic insertion)
+    setChatMessages((prev) => {
+      if (prev.some((m) => m.id === messageId)) return prev;
+      return [...prev.slice(-99), optimisticMsg];
+    });
+
+    const payload = {
+      id: messageId,
+      senderId: myId,
+      senderName,
+      senderAvatar,
+      text: trimmed,
+      timestamp,
+      room: currentRoom,
+    };
+
+    // 2. Send via WebSocket if open, OR fallback to HTTP (NEVER BOTH)
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      try {
+        socketRef.current.send(
+          JSON.stringify({
+            type: 'chat',
+            ...payload,
+          })
+        );
+        return; // Sent via WebSocket! Do not also call fetch to avoid duplicate message!
+      } catch {}
+    }
+
+    // 3. Fallback: WebSocket is not open, send via HTTP
+    fetch('/api/multiplayer/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }).catch(() => {});
   }, []);
 
   // Send Emote
   const sendEmote = useCallback((emoji: string, text?: string) => {
-    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
-    socketRef.current.send(
-      JSON.stringify({
-        type: 'emote',
+    const myId = myPlayerIdRef.current;
+    const currentRoom = stateRef.current.room;
+
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      try {
+        socketRef.current.send(
+          JSON.stringify({
+            type: 'emote',
+            playerId: myId,
+            emoji,
+            text,
+            room: currentRoom,
+          })
+        );
+        return;
+      } catch {}
+    }
+
+    fetch('/api/multiplayer/emote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        playerId: myId,
         emoji,
         text,
-      })
-    );
+        room: currentRoom,
+      }),
+    }).catch(() => {});
   }, []);
 
   // Announce Monster Defeated to room
   const announceMonsterDefeated = useCallback((monsterName: string, xp: number) => {
-    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
-    socketRef.current.send(
-      JSON.stringify({
-        type: 'monster_defeated',
-        monsterName,
-        cityName: stateRef.current.currentCity.name,
-        xp,
-      })
-    );
+    const myId = myPlayerIdRef.current;
+    const currentRoom = stateRef.current.room;
+    const payload = {
+      type: 'monster_defeated',
+      monsterName,
+      cityName: stateRef.current.currentCity.name,
+      xp,
+      room: currentRoom,
+    };
+
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      try {
+        socketRef.current.send(JSON.stringify(payload));
+        return;
+      } catch {}
+    }
+
+    fetch('/api/multiplayer/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        senderId: 'system',
+        senderName: 'World News',
+        text: `🏆 Trainer ${stateRef.current.student?.name || 'Explorer'} defeated ${monsterName} in ${stateRef.current.currentCity.name}! (+${xp} XP)`,
+        room: currentRoom,
+      }),
+    }).catch(() => {});
   }, []);
 
   // Switch Room / Party code
@@ -365,50 +546,95 @@ export function useMultiplayer({ student, currentCity, cityIndex }: UseMultiplay
       // ignore
     }
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-      socketRef.current.send(
-        JSON.stringify({
-          type: 'switch_room',
-          room: cleanRoom,
-        })
-      );
+      try {
+        socketRef.current.send(
+          JSON.stringify({
+            type: 'switch_room',
+            room: cleanRoom,
+          })
+        );
+      } catch {}
     }
-  }, []);
+    syncOverHttp();
+  }, [syncOverHttp]);
 
   // Duel actions
   const inviteToDuel = useCallback((targetPlayerId: string, question: { prompt: string; options: string[]; correctAnswer: string }) => {
-    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
-    socketRef.current.send(
-      JSON.stringify({
-        type: 'duel_invite',
-        targetPlayerId,
-        question,
+    const myId = myPlayerIdRef.current;
+    const payload = {
+      type: 'duel_invite',
+      challengerId: myId,
+      targetPlayerId,
+      question,
+    };
+
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      try {
+        socketRef.current.send(JSON.stringify(payload));
+        return;
+      } catch {}
+    }
+
+    fetch('/api/multiplayer/duel/invite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.duel && data.duel.status === 'active') {
+          setActiveDuel(data.duel);
+        }
       })
-    );
+      .catch(() => {});
   }, []);
 
   const respondToDuel = useCallback((duelId: string, accept: boolean) => {
-    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
-    socketRef.current.send(
-      JSON.stringify({
-        type: 'duel_response',
-        duelId,
-        accept,
-      })
-    );
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      try {
+        socketRef.current.send(
+          JSON.stringify({
+            type: 'duel_response',
+            duelId,
+            accept,
+          })
+        );
+      } catch {}
+    }
+
     if (!accept) {
       setIncomingDuelInvite(null);
     }
   }, []);
 
   const answerDuel = useCallback((duelId: string, answer: string) => {
-    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
-    socketRef.current.send(
-      JSON.stringify({
-        type: 'duel_answer',
-        duelId,
-        answer,
+    const myId = myPlayerIdRef.current;
+    const payload = {
+      type: 'duel_answer',
+      duelId,
+      playerId: myId,
+      answer,
+    };
+
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      try {
+        socketRef.current.send(JSON.stringify(payload));
+        return;
+      } catch {}
+    }
+
+    fetch('/api/multiplayer/duel/answer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.duel && data.duel.status === 'finished') {
+          setDuelResult({ duel: data.duel, winnerId: data.duel.winnerId });
+        }
       })
-    );
+      .catch(() => {});
   }, []);
 
   const dismissDuel = useCallback(() => {

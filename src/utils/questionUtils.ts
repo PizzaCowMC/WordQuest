@@ -1,4 +1,5 @@
 import { Question } from '../types';
+import { getRandomBankDuelQuestion } from '../data/masterQuestionBank';
 
 /**
  * Shuffles options for a set of battle questions such that:
@@ -192,19 +193,5 @@ const DUEL_QUESTION_BANK: { prompt: string; correct: string; distractors: string
  * Returns a randomized duel question with shuffled options and the correct answer randomly positioned.
  */
 export function getRandomDuelQuestion(cityName?: string): DuelQuestionData {
-  const item = DUEL_QUESTION_BANK[Math.floor(Math.random() * DUEL_QUESTION_BANK.length)];
-  const prompt = cityName ? `In ${cityName}: ${item.prompt}` : item.prompt;
-
-  // Combine correct answer and distractors, then shuffle
-  const allOptions = [item.correct, ...item.distractors];
-  for (let i = allOptions.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [allOptions[i], allOptions[j]] = [allOptions[j], allOptions[i]];
-  }
-
-  return {
-    prompt,
-    options: allOptions,
-    correctAnswer: item.correct,
-  };
+  return getRandomBankDuelQuestion(cityName);
 }

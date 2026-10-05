@@ -69,36 +69,32 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-// In-memory server-authoritative state
+// In-memory server-authoritative state for REAL human players
 const players = new Map<string, MultiplayerPlayer>();
 const socketToPlayerId = new Map<WebSocket, string>();
 const chatHistory: ChatMessage[] = [];
 const activeDuels = new Map<string, DuelSession>();
 const announcedPlayers = new Map<string, number>(); // playerId -> last announcement timestamp
 
-// Initialize WebSocket Server with noServer to prevent port and path collision with Vite HMR
+// Initialize WebSocket Server with noServer to prevent port and path collision with Vite
 const wss = new WebSocketServer({ noServer: true });
 
 function broadcastToRoom(room: string, data: object, excludeWs?: WebSocket) {
   const messageStr = JSON.stringify(data);
+  const targetRoom = (room || 'global').toLowerCase().trim();
   for (const client of wss.clients) {
     if (client.readyState === WebSocket.OPEN && client !== excludeWs) {
       const pId = socketToPlayerId.get(client);
       if (pId) {
         const p = players.get(pId);
-        if (p && p.room === room) {
-          client.send(messageStr);
+        if (p && (p.room || 'global').toLowerCase().trim() === targetRoom) {
+          try {
+            client.send(messageStr);
+          } catch {
+            // ignore
+          }
         }
       }
-    }
-  }
-}
-
-function broadcastToAll(data: object) {
-  const messageStr = JSON.stringify(data);
-  for (const client of wss.clients) {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(messageStr);
     }
   }
 }
@@ -120,31 +116,35 @@ wss.on('connection', (ws: WebSocket) => {
           const newPlayer: MultiplayerPlayer = {
             id: playerId,
             name: player.name || 'Trainer',
-            avatar: player.avatar || 'boy',
-            clothingColor: player.clothingColor || '#3b82f6',
+            avatar: player.avatar || '🧒',
+            clothingColor: player.clothingColor || '#38bdf8',
             companionId: player.companionId || 'starter-electric',
             cityIndex: typeof player.cityIndex === 'number' ? player.cityIndex : 0,
-            cityName: player.cityName || 'Tokyo',
-            pos: player.pos || { lat: 35.6762, lng: 139.6503 },
+            cityName: player.cityName || 'London',
+            pos: player.pos || { lat: 51.5074, lng: -0.1278 },
             facing: player.facing || 'down',
-            vehicle: player.vehicle || 'foot',
+            vehicle: player.vehicle || 'walk',
             level: player.level || 1,
             title: player.title || 'Novice Word Explorer',
             lastActive: Date.now(),
-            room: room.toLowerCase().trim() || 'global',
+            room: (room || 'global').toLowerCase().trim(),
           };
 
           players.set(playerId, newPlayer);
 
-          // Get other players in this room
-          const roomPlayers = Array.from(players.values()).filter(p => p.room === newPlayer.room);
+          // Get other REAL players in this room
+          const roomPlayers = Array.from(players.values()).filter(
+            p => (p.room || 'global').toLowerCase().trim() === newPlayer.room
+          );
 
           // Send init payload with state to newly connected client
           ws.send(JSON.stringify({
             type: 'init',
             yourId: playerId,
             players: roomPlayers,
-            messages: chatHistory.filter(m => m.room === newPlayer.room).slice(-50),
+            messages: chatHistory
+              .filter(m => (m.room || 'global').toLowerCase().trim() === newPlayer.room)
+              .slice(-50),
           }));
 
           // Broadcast join event to everyone else in the room
@@ -153,19 +153,19 @@ wss.on('connection', (ws: WebSocket) => {
             player: newPlayer,
           }, ws);
 
-          // System announcement in chat - strictly throttled by player ID and name (once per 2 hours)
+          // System announcement in chat (throttled)
           const nameKey = (newPlayer.name || '').trim().toLowerCase();
           const lastAnnouncedById = announcedPlayers.get(playerId);
           const lastAnnouncedByName = nameKey ? announcedPlayers.get(`name:${nameKey}`) : undefined;
           const lastAnnounced = Math.max(lastAnnouncedById || 0, lastAnnouncedByName || 0);
           const isGenericTrainer = !newPlayer.name || newPlayer.name.toLowerCase() === 'trainer' || newPlayer.name.toLowerCase() === 'explorer';
-          const shouldAnnounce = !isGenericTrainer && (!lastAnnounced || (Date.now() - lastAnnounced > 1000 * 60 * 120));
+          const shouldAnnounce = !isGenericTrainer && (!lastAnnounced || (Date.now() - lastAnnounced > 1000 * 60 * 60));
 
           if (shouldAnnounce) {
             announcedPlayers.set(playerId, Date.now());
             if (nameKey) announcedPlayers.set(`name:${nameKey}`, Date.now());
             const joinMsg: ChatMessage = {
-              id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+              id: `ann-${Date.now()}-${playerId}`,
               senderId: 'system',
               senderName: 'System',
               text: `✨ Trainer ${newPlayer.name} (Lv. ${newPlayer.level}) entered the world!`,
@@ -173,12 +173,14 @@ wss.on('connection', (ws: WebSocket) => {
               room: newPlayer.room,
               isAnnouncement: true,
             };
-            chatHistory.push(joinMsg);
-            if (chatHistory.length > 200) chatHistory.shift();
-            broadcastToRoom(newPlayer.room, {
-              type: 'chat_message',
-              message: joinMsg,
-            });
+            if (!chatHistory.some(m => m.id === joinMsg.id)) {
+              chatHistory.push(joinMsg);
+              if (chatHistory.length > 200) chatHistory.shift();
+              broadcastToRoom(newPlayer.room, {
+                type: 'chat_message',
+                message: joinMsg,
+              });
+            }
           }
           break;
         }
@@ -189,7 +191,7 @@ wss.on('connection', (ws: WebSocket) => {
         }
 
         case 'move': {
-          const pId = socketToPlayerId.get(ws);
+          const pId = data.id || socketToPlayerId.get(ws);
           if (!pId) return;
           const p = players.get(pId);
           if (!p) return;
@@ -201,7 +203,6 @@ wss.on('connection', (ws: WebSocket) => {
           if (data.cityName) p.cityName = data.cityName;
           p.lastActive = Date.now();
 
-          // Broadcast movement delta to players in the same room
           broadcastToRoom(p.room, {
             type: 'player_moved',
             id: p.id,
@@ -215,29 +216,36 @@ wss.on('connection', (ws: WebSocket) => {
         }
 
         case 'chat': {
-          const pId = socketToPlayerId.get(ws);
-          if (!pId) return;
-          const p = players.get(pId);
-          if (!p) return;
+          const pId = data.senderId || socketToPlayerId.get(ws);
+          const p = pId ? players.get(pId) : null;
+          const senderName = p?.name || data.senderName || 'Trainer';
+          const senderAvatar = p?.avatar || data.senderAvatar || '🧒';
+          const targetRoom = (data.room || p?.room || 'global').toLowerCase().trim();
 
           const text = (data.text || '').trim();
           if (!text || text.length > 280) return;
 
+          // Preserve client's exact message id to prevent duplicate messages!
+          const messageId = data.id || `msg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+
+          // Check if already in chat history to guarantee idempotency
+          if (chatHistory.some(m => m.id === messageId)) return;
+
           const newMsg: ChatMessage = {
-            id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-            senderId: p.id,
-            senderName: p.name,
-            senderAvatar: p.avatar,
+            id: messageId,
+            senderId: pId || `p-${Date.now()}`,
+            senderName,
+            senderAvatar,
             text,
-            timestamp: Date.now(),
-            room: p.room,
+            timestamp: data.timestamp || Date.now(),
+            room: targetRoom,
           };
 
           chatHistory.push(newMsg);
           if (chatHistory.length > 200) chatHistory.shift();
 
-          // Broadcast to everyone in the room (including sender to confirm)
-          broadcastToRoom(p.room, {
+          // Broadcast to everyone in the room (including sender to confirm delivery)
+          broadcastToRoom(targetRoom, {
             type: 'chat_message',
             message: newMsg,
           });
@@ -245,26 +253,19 @@ wss.on('connection', (ws: WebSocket) => {
         }
 
         case 'emote': {
-          const pId = socketToPlayerId.get(ws);
+          const pId = data.playerId || socketToPlayerId.get(ws);
           if (!pId) return;
           const p = players.get(pId);
           if (!p) return;
 
-          const emoji = (data.emoji || '👋').slice(0, 10);
-          const emoteText = (data.text || '').slice(0, 50);
-
-          p.currentEmote = {
-            emoji,
-            text: emoteText,
-            timestamp: Date.now(),
-          };
+          const { emoji, text } = data;
+          p.currentEmote = { emoji, text, timestamp: Date.now() };
 
           broadcastToRoom(p.room, {
             type: 'player_emote',
             playerId: p.id,
-            playerName: p.name,
             emoji,
-            text: emoteText,
+            text,
           });
           break;
         }
@@ -279,7 +280,6 @@ wss.on('connection', (ws: WebSocket) => {
           const newRoom = (data.room || 'global').toLowerCase().trim();
           if (oldRoom === newRoom) return;
 
-          // Announce leave in old room
           broadcastToRoom(oldRoom, {
             type: 'player_left',
             id: p.id,
@@ -288,16 +288,18 @@ wss.on('connection', (ws: WebSocket) => {
 
           p.room = newRoom;
 
-          // Send current state of new room to player
-          const roomPlayers = Array.from(players.values()).filter(player => player.room === newRoom);
+          const roomPlayers = Array.from(players.values()).filter(
+            player => (player.room || 'global').toLowerCase().trim() === newRoom
+          );
           ws.send(JSON.stringify({
             type: 'init',
             yourId: p.id,
             players: roomPlayers,
-            messages: chatHistory.filter(m => m.room === newRoom).slice(-50),
+            messages: chatHistory
+              .filter(m => (m.room || 'global').toLowerCase().trim() === newRoom)
+              .slice(-50),
           }));
 
-          // Announce join in new room
           broadcastToRoom(newRoom, {
             type: 'player_joined',
             player: p,
@@ -330,7 +332,7 @@ wss.on('connection', (ws: WebSocket) => {
         }
 
         case 'duel_invite': {
-          const pId = socketToPlayerId.get(ws);
+          const pId = data.challengerId || socketToPlayerId.get(ws);
           if (!pId) return;
           const challenger = players.get(pId);
           const targetPlayer = players.get(data.targetPlayerId);
@@ -354,7 +356,7 @@ wss.on('connection', (ws: WebSocket) => {
 
           activeDuels.set(duelId, duel);
 
-          // Send invitation to opponent
+          // Send invitation to real human opponent
           for (const [client, id] of socketToPlayerId.entries()) {
             if (id === targetPlayer.id && client.readyState === WebSocket.OPEN) {
               client.send(JSON.stringify({
@@ -374,7 +376,6 @@ wss.on('connection', (ws: WebSocket) => {
 
           if (!accept) {
             duel.status = 'finished';
-            // Inform challenger
             for (const [client, id] of socketToPlayerId.entries()) {
               if (id === duel.challengerId && client.readyState === WebSocket.OPEN) {
                 client.send(JSON.stringify({
@@ -390,7 +391,6 @@ wss.on('connection', (ws: WebSocket) => {
           }
 
           duel.status = 'active';
-          // Send start to both players
           for (const [client, id] of socketToPlayerId.entries()) {
             if ((id === duel.challengerId || id === duel.opponentId) && client.readyState === WebSocket.OPEN) {
               client.send(JSON.stringify({
@@ -403,7 +403,7 @@ wss.on('connection', (ws: WebSocket) => {
         }
 
         case 'duel_answer': {
-          const pId = socketToPlayerId.get(ws);
+          const pId = data.playerId || socketToPlayerId.get(ws);
           const { duelId, answer } = data;
           const duel = activeDuels.get(duelId);
           if (!duel || duel.status !== 'active') return;
@@ -414,7 +414,6 @@ wss.on('connection', (ws: WebSocket) => {
             duel.opponentAnswer = answer;
           }
 
-          // Check if both answered or if one answered correctly
           if (duel.challengerAnswer && duel.opponentAnswer) {
             const chCorrect = duel.challengerAnswer === duel.question.correctAnswer;
             const opCorrect = duel.opponentAnswer === duel.question.correctAnswer;
@@ -427,7 +426,6 @@ wss.on('connection', (ws: WebSocket) => {
             duel.status = 'finished';
             duel.winnerId = winnerId;
 
-            // Broadcast result to both
             for (const [client, id] of socketToPlayerId.entries()) {
               if ((id === duel.challengerId || id === duel.opponentId) && client.readyState === WebSocket.OPEN) {
                 client.send(JSON.stringify({
@@ -467,11 +465,11 @@ wss.on('connection', (ws: WebSocket) => {
   });
 });
 
-// Periodic heartbeat & inactive player cleanup (remove ghost connections after 2 minutes)
+// Periodic cleanup of inactive human sessions (removes disconnected players after 2.5 minutes)
 setInterval(() => {
   const now = Date.now();
   for (const [id, player] of players.entries()) {
-    if (now - player.lastActive > 120000) {
+    if (now - player.lastActive > 150000) {
       broadcastToRoom(player.room, {
         type: 'player_left',
         id,
@@ -482,6 +480,256 @@ setInterval(() => {
   }
 }, 30000);
 
+// =========================================================================
+// REST API ENDPOINTS (Fallback & Real-time State Synchronization)
+// =========================================================================
+
+// 1. Full State Sync
+app.get('/api/multiplayer/sync', (req, res) => {
+  const room = ((req.query.room as string) || 'global').toLowerCase().trim();
+  const playerId = (req.query.playerId as string) || '';
+
+  const roomPlayers = Array.from(players.values()).filter(
+    (p) => (p.room || 'global').toLowerCase().trim() === room
+  );
+  const messages = chatHistory
+    .filter((m) => (m.room || 'global').toLowerCase().trim() === room)
+    .slice(-50);
+
+  let playerDuel: DuelSession | null = null;
+  if (playerId) {
+    for (const d of activeDuels.values()) {
+      if (d.challengerId === playerId || d.opponentId === playerId) {
+        playerDuel = d;
+        break;
+      }
+    }
+  }
+
+  res.json({
+    status: 'connected',
+    players: roomPlayers,
+    messages,
+    activeDuel: playerDuel,
+    timestamp: Date.now(),
+  });
+});
+
+// 2. Join Room / Register Player
+app.post('/api/multiplayer/join', (req, res) => {
+  const { player, room = 'global' } = req.body;
+  if (!player || !player.id) {
+    return res.status(400).json({ error: 'Player data required' });
+  }
+
+  const cleanRoom = (room || 'global').toLowerCase().trim();
+  const existing = players.get(player.id);
+  const newPlayer: MultiplayerPlayer = {
+    id: player.id,
+    name: player.name || 'Trainer',
+    avatar: player.avatar || '🧒',
+    clothingColor: player.clothingColor || '#38bdf8',
+    companionId: player.companionId || 'starter-electric',
+    cityIndex: typeof player.cityIndex === 'number' ? player.cityIndex : (existing?.cityIndex ?? 0),
+    cityName: player.cityName || (existing?.cityName ?? 'London'),
+    pos: player.pos || existing?.pos || { lat: 51.5074, lng: -0.1278 },
+    facing: player.facing || existing?.facing || 'down',
+    vehicle: player.vehicle || existing?.vehicle || 'walk',
+    level: player.level || existing?.level || 1,
+    title: player.title || existing?.title || 'Word Explorer',
+    lastActive: Date.now(),
+    room: cleanRoom,
+  };
+
+  players.set(player.id, newPlayer);
+
+  broadcastToRoom(cleanRoom, {
+    type: 'player_joined',
+    player: newPlayer,
+  });
+
+  const roomPlayers = Array.from(players.values()).filter(
+    (p) => (p.room || 'global').toLowerCase().trim() === cleanRoom
+  );
+  const messages = chatHistory
+    .filter((m) => (m.room || 'global').toLowerCase().trim() === cleanRoom)
+    .slice(-50);
+
+  res.json({
+    success: true,
+    players: roomPlayers,
+    messages,
+    yourId: player.id,
+  });
+});
+
+// 3. Send Chat Message (Guarantees preservation of client message ID to prevent duplication)
+app.post('/api/multiplayer/chat', (req, res) => {
+  const { id, senderId, senderName, senderAvatar, text, timestamp, room = 'global' } = req.body;
+  if (!text || !text.trim()) {
+    return res.status(400).json({ error: 'Text is required' });
+  }
+
+  const cleanRoom = (room || 'global').toLowerCase().trim();
+  const messageId = id || `msg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+
+  // Idempotency: if already added via WebSocket or prior request, return immediately
+  const existing = chatHistory.find(m => m.id === messageId);
+  if (existing) {
+    return res.json({ success: true, message: existing });
+  }
+
+  const p = senderId ? players.get(senderId) : null;
+  if (p) p.lastActive = Date.now();
+
+  const newMsg: ChatMessage = {
+    id: messageId,
+    senderId: senderId || 'anon',
+    senderName: senderName || p?.name || 'Trainer',
+    senderAvatar: senderAvatar || p?.avatar || '🧒',
+    text: text.trim().substring(0, 280),
+    timestamp: timestamp || Date.now(),
+    room: cleanRoom,
+  };
+
+  chatHistory.push(newMsg);
+  if (chatHistory.length > 200) chatHistory.shift();
+
+  broadcastToRoom(cleanRoom, {
+    type: 'chat_message',
+    message: newMsg,
+  });
+
+  res.json({ success: true, message: newMsg });
+});
+
+// 4. Send Movement
+app.post('/api/multiplayer/move', (req, res) => {
+  const { id, pos, facing, vehicle, cityIndex, cityName, room = 'global' } = req.body;
+  if (!id) return res.status(400).json({ error: 'ID required' });
+
+  const p = players.get(id);
+  if (p) {
+    if (pos) p.pos = pos;
+    if (facing) p.facing = facing;
+    if (vehicle) p.vehicle = vehicle;
+    if (typeof cityIndex === 'number') p.cityIndex = cityIndex;
+    if (cityName) p.cityName = cityName;
+    p.lastActive = Date.now();
+
+    broadcastToRoom(p.room, {
+      type: 'player_moved',
+      id: p.id,
+      pos: p.pos,
+      facing: p.facing,
+      vehicle: p.vehicle,
+      cityIndex: p.cityIndex,
+      cityName: p.cityName,
+    });
+  }
+
+  res.json({ success: true });
+});
+
+// 5. Send Emote
+app.post('/api/multiplayer/emote', (req, res) => {
+  const { playerId, emoji, text, room = 'global' } = req.body;
+  if (!playerId || !emoji) return res.status(400).json({ error: 'PlayerId and emoji required' });
+
+  const cleanRoom = (room || 'global').toLowerCase().trim();
+  const p = players.get(playerId);
+  if (p) {
+    p.currentEmote = { emoji, text, timestamp: Date.now() };
+    p.lastActive = Date.now();
+  }
+
+  broadcastToRoom(cleanRoom, {
+    type: 'player_emote',
+    playerId,
+    emoji,
+    text,
+  });
+
+  res.json({ success: true });
+});
+
+// 6. Duel Invite via HTTP
+app.post('/api/multiplayer/duel/invite', (req, res) => {
+  const { challengerId, targetPlayerId, question } = req.body;
+  const challenger = players.get(challengerId);
+  const targetPlayer = players.get(targetPlayerId);
+
+  if (!challenger || !targetPlayer) {
+    return res.status(400).json({ error: 'Invalid challenger or target' });
+  }
+
+  const duelId = `duel-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+  const duel: DuelSession = {
+    id: duelId,
+    challengerId: challenger.id,
+    challengerName: challenger.name,
+    opponentId: targetPlayer.id,
+    opponentName: targetPlayer.name,
+    question: question || {
+      prompt: 'Which word is an adjective?',
+      options: ['Run', 'Happiness', 'Magnificent', 'Quickly'].sort(() => Math.random() - 0.5),
+      correctAnswer: 'Magnificent',
+    },
+    status: 'pending',
+    expiresAt: Date.now() + 30000,
+  };
+
+  activeDuels.set(duelId, duel);
+
+  // Send invitation to real human opponent over WS if connected
+  for (const [client, id] of socketToPlayerId.entries()) {
+    if (id === targetPlayer.id && client.readyState === WebSocket.OPEN) {
+      client.send(JSON.stringify({
+        type: 'duel_invited',
+        duel,
+      }));
+      break;
+    }
+  }
+
+  res.json({ success: true, duel });
+});
+
+// 7. Duel Answer via HTTP
+app.post('/api/multiplayer/duel/answer', (req, res) => {
+  const { duelId, playerId, answer } = req.body;
+  const duel = activeDuels.get(duelId);
+  if (!duel || duel.status !== 'active') {
+    return res.status(400).json({ error: 'Duel not active' });
+  }
+
+  if (playerId === duel.challengerId) {
+    duel.challengerAnswer = answer;
+  } else if (playerId === duel.opponentId) {
+    duel.opponentAnswer = answer;
+  }
+
+  if (duel.challengerAnswer && duel.opponentAnswer) {
+    const chCorrect = duel.challengerAnswer === duel.question.correctAnswer;
+    const opCorrect = duel.opponentAnswer === duel.question.correctAnswer;
+    duel.status = 'finished';
+    duel.winnerId = chCorrect && !opCorrect ? duel.challengerId : (!chCorrect && opCorrect ? duel.opponentId : 'tie');
+
+    for (const [client, id] of socketToPlayerId.entries()) {
+      if ((id === duel.challengerId || id === duel.opponentId) && client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify({
+          type: 'duel_result',
+          duel,
+          winnerId: duel.winnerId,
+        }));
+      }
+    }
+    activeDuels.delete(duelId);
+  }
+
+  res.json({ success: true, duel });
+});
+
 // API endpoint for health & server stats
 app.get('/api/multiplayer/stats', (_req, res) => {
   res.json({
@@ -491,16 +739,18 @@ app.get('/api/multiplayer/stats', (_req, res) => {
   });
 });
 
-// Upgrade handling for WebSockets
+// Safe Upgrade handling for WebSockets
 server.on('upgrade', (request, socket, head) => {
-  const pathname = request.url ? new URL(request.url, `http://${request.headers.host}`).pathname : '';
-  if (pathname === '/ws' || pathname.startsWith('/ws')) {
-    wss.handleUpgrade(request, socket, head, (ws) => {
-      wss.emit('connection', ws, request);
-    });
-  } else {
-    // Let other handlers or Vite handle non-/ws upgrade requests (like Vite HMR)
-    // socket.destroy();
+  try {
+    const url = request.url || '';
+    const pathname = url.split('?')[0];
+    if (pathname === '/ws' || pathname.startsWith('/ws')) {
+      wss.handleUpgrade(request, socket, head, (ws) => {
+        wss.emit('connection', ws, request);
+      });
+    }
+  } catch (err) {
+    console.error('WebSocket upgrade error:', err);
   }
 });
 
