@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import { Monster, StudentProfile } from '../types';
+import { Monster, StudentProfile, Question } from '../types';
 import { soundEffects } from '../utils/audio';
 import { speakEnglishText } from '../utils/tts';
+import { prepareBattleQuestions } from '../utils/questionUtils';
 import { 
   Volume2, 
   HelpCircle, 
@@ -34,13 +35,20 @@ export const BattleModal: React.FC<BattleModalProps> = ({
   onVictory,
   onClose
 }) => {
-  const totalQuestions = monster.questions.length;
+  const [battleQuestions, setBattleQuestions] = useState<Question[]>(() => 
+    prepareBattleQuestions(monster.questions || [])
+  );
+  const totalQuestions = battleQuestions.length;
   const [currentQIndex, setCurrentQIndex] = useState(0);
   const [monsterHp, setMonsterHp] = useState(totalQuestions);
   const [trainerHp, setTrainerHp] = useState(100);
   const [showHint, setShowHint] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   
+  // Track selected and already-tried wrong options for the current question
+  const [selectedOptionIdx, setSelectedOptionIdx] = useState<number | null>(null);
+  const [wrongOptionIndices, setWrongOptionIndices] = useState<number[]>([]);
+
   // 3 Time Check (3 Lives / Attempts per question)
   const [chancesLeft, setChancesLeft] = useState<number>(3);
   const [showCheckReview, setShowCheckReview] = useState<boolean>(false);
@@ -56,7 +64,23 @@ export const BattleModal: React.FC<BattleModalProps> = ({
   const [capturePhase, setCapturePhase] = useState<number>(0);
   const [isWon, setIsWon] = useState(false);
 
-  const question = monster.questions[currentQIndex];
+  // Re-prepare randomized questions whenever a new monster is loaded
+  useEffect(() => {
+    const prepared = prepareBattleQuestions(monster.questions || []);
+    setBattleQuestions(prepared);
+    setCurrentQIndex(0);
+    setMonsterHp(prepared.length);
+    setChancesLeft(3);
+    setShowHint(false);
+    setSelectedOptionIdx(null);
+    setWrongOptionIndices([]);
+    setShowCheckReview(false);
+    setFeedback({ type: null, message: '' });
+    setIsCapturing(false);
+    setIsWon(false);
+  }, [monster.id]);
+
+  const question = battleQuestions[currentQIndex] || monster.questions[currentQIndex];
 
   // Play encounter sound upon opening
   useEffect(() => {
@@ -70,7 +94,9 @@ export const BattleModal: React.FC<BattleModalProps> = ({
   };
 
   const handleSelectOption = (index: number) => {
-    if (isCapturing || isWon || !question || showCheckReview) return;
+    if (isCapturing || isWon || !question || showCheckReview || feedback.type === 'correct' || wrongOptionIndices.includes(index)) return;
+
+    setSelectedOptionIdx(index);
 
     if (index === question.correctIndex) {
       // CORRECT ANSWER!
@@ -97,6 +123,8 @@ export const BattleModal: React.FC<BattleModalProps> = ({
         // Move to next question after brief pause & restore 3 chances
         setTimeout(() => {
           setCurrentQIndex(prev => prev + 1);
+          setSelectedOptionIdx(null);
+          setWrongOptionIndices([]);
           setChancesLeft(3);
           setShowHint(false);
           setFeedback({ type: null, message: '' });
@@ -104,6 +132,7 @@ export const BattleModal: React.FC<BattleModalProps> = ({
       }
     } else {
       // WRONG ANSWER - Decrement 1 Chance (from 3-Check system)
+      setWrongOptionIndices(prev => [...prev, index]);
       const nextChances = chancesLeft - 1;
       setChancesLeft(nextChances);
 
@@ -134,6 +163,8 @@ export const BattleModal: React.FC<BattleModalProps> = ({
   const handleRestoreChances = () => {
     soundEffects.playSelect();
     setChancesLeft(3);
+    setWrongOptionIndices([]);
+    setSelectedOptionIdx(null);
     setShowCheckReview(false);
     setFeedback({
       type: null,
@@ -453,23 +484,50 @@ export const BattleModal: React.FC<BattleModalProps> = ({
           {/* 4 Attack Move Buttons */}
           {question && !isCapturing && !isWon && !showCheckReview && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {question.options.map((option, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => handleSelectOption(idx)}
-                  className="group relative p-3 sm:p-3.5 rounded-2xl bg-slate-900 border border-slate-700/80 hover:border-amber-400 hover:bg-slate-800/90 active:scale-[0.98] transition-all text-left flex items-center justify-between cursor-pointer shadow-md"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <span className="w-6 h-6 rounded-lg bg-slate-800 group-hover:bg-amber-400 group-hover:text-slate-950 flex items-center justify-center font-bold text-xs text-slate-300 transition-colors">
-                      {String.fromCharCode(65 + idx)}
-                    </span>
-                    <span className="text-sm font-bold text-white group-hover:text-amber-300 transition-colors">
-                      {option}
-                    </span>
-                  </div>
-                  <Zap className="w-4 h-4 text-slate-600 group-hover:text-amber-400 transition-colors" />
-                </button>
-              ))}
+              {question.options.map((option, idx) => {
+                const isWrong = wrongOptionIndices.includes(idx);
+                const isCorrect = feedback.type === 'correct' && idx === question.correctIndex;
+                const isLocked = feedback.type === 'correct' || isWrong;
+
+                return (
+                  <button
+                    key={idx}
+                    disabled={isLocked}
+                    onClick={() => handleSelectOption(idx)}
+                    className={`group relative p-3 sm:p-3.5 rounded-2xl border transition-all text-left flex items-center justify-between cursor-pointer shadow-md ${
+                      isCorrect
+                        ? 'bg-emerald-500/25 border-emerald-400 text-emerald-100 ring-2 ring-emerald-400/50 scale-[1.01]'
+                        : isWrong
+                        ? 'bg-red-950/30 border-red-500/40 text-red-300 opacity-60 cursor-not-allowed'
+                        : 'bg-slate-900 border-slate-700/80 hover:border-amber-400 hover:bg-slate-800/90 active:scale-[0.98]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span className={`w-6 h-6 rounded-lg flex items-center justify-center font-bold text-xs transition-colors ${
+                        isCorrect
+                          ? 'bg-emerald-400 text-slate-950'
+                          : isWrong
+                          ? 'bg-red-500/30 text-red-300'
+                          : 'bg-slate-800 text-slate-300 group-hover:bg-amber-400 group-hover:text-slate-950'
+                      }`}>
+                        {String.fromCharCode(65 + idx)}
+                      </span>
+                      <span className={`text-sm font-bold transition-colors ${
+                        isCorrect ? 'text-emerald-200' : isWrong ? 'text-red-300 line-through' : 'text-white group-hover:text-amber-300'
+                      }`}>
+                        {option}
+                      </span>
+                    </div>
+                    {isCorrect ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    ) : isWrong ? (
+                      <XCircle className="w-4 h-4 text-red-400" />
+                    ) : (
+                      <Zap className="w-4 h-4 text-slate-600 group-hover:text-amber-400 transition-colors" />
+                    )}
+                  </button>
+                );
+              })}
             </div>
           )}
 

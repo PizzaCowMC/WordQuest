@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import L from 'leaflet';
-import { CityData, Monster, TransitStation } from '../types';
+import { CityData, Monster, TransitStation, MultiplayerPlayer } from '../types';
 import { Maximize2, Minimize2, Compass } from 'lucide-react';
 import { soundEffects } from '../utils/audio';
 
@@ -10,6 +10,7 @@ interface CityMiniMapOverlayProps {
   facingDirection: 'N' | 'S' | 'E' | 'W';
   defeatedMonsterIds: string[];
   activeVehicleIcon?: string;
+  multiplayerPlayers?: MultiplayerPlayer[];
   onPanToLocation?: (coords: [number, number]) => void;
 }
 
@@ -19,6 +20,7 @@ export const CityMiniMapOverlay: React.FC<CityMiniMapOverlayProps> = ({
   facingDirection,
   defeatedMonsterIds,
   activeVehicleIcon = '🚶',
+  multiplayerPlayers = [],
   onPanToLocation
 }) => {
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
@@ -27,6 +29,7 @@ export const CityMiniMapOverlay: React.FC<CityMiniMapOverlayProps> = ({
   const playerMarkerRef = useRef<L.Marker | null>(null);
   const monsterMarkersRef = useRef<L.Marker[]>([]);
   const stationMarkersRef = useRef<L.Marker[]>([]);
+  const remotePlayerMarkersRef = useRef<L.Marker[]>([]);
 
   const rotationAngles: Record<'N' | 'S' | 'E' | 'W', number> = {
     N: 0,
@@ -39,10 +42,11 @@ export const CityMiniMapOverlay: React.FC<CityMiniMapOverlayProps> = ({
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
-    const initialZoom = isExpanded ? 15 : 14;
+    const initialZoom = isExpanded ? 13 : 11;
     const miniMap = L.map(mapContainerRef.current, {
       center: playerPosition,
       zoom: initialZoom,
+      minZoom: 10,
       zoomControl: false,
       attributionControl: false,
       dragging: true,
@@ -54,6 +58,7 @@ export const CityMiniMapOverlay: React.FC<CityMiniMapOverlayProps> = ({
 
     // Real OpenStreetMap road tiles
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      minZoom: 10,
       maxZoom: 18,
       subdomains: ['a', 'b', 'c']
     }).addTo(miniMap);
@@ -102,7 +107,7 @@ export const CityMiniMapOverlay: React.FC<CityMiniMapOverlayProps> = ({
     const timer = setTimeout(() => {
       if (miniMapRef.current) {
         miniMapRef.current.invalidateSize();
-        miniMapRef.current.setView(playerPosition, isExpanded ? 15 : 14);
+        miniMapRef.current.setView(playerPosition, isExpanded ? 13 : 11);
       }
     }, 150);
     return () => clearTimeout(timer);
@@ -206,6 +211,41 @@ export const CityMiniMapOverlay: React.FC<CityMiniMapOverlayProps> = ({
       stationMarkersRef.current.push(marker);
     });
   }, [currentCity]);
+
+  // Update Remote Players on Mini-Map Radar
+  useEffect(() => {
+    if (!miniMapRef.current) return;
+    const miniMap = miniMapRef.current;
+
+    remotePlayerMarkersRef.current.forEach(p => miniMap.removeLayer(p));
+    remotePlayerMarkersRef.current = [];
+
+    multiplayerPlayers.forEach(player => {
+      const icon = L.divIcon({
+        className: 'custom-minimap-player',
+        html: `
+          <div style="
+            width: 10px; 
+            height: 10px; 
+            border-radius: 9999px; 
+            background: #38bdf8; 
+            border: 2px solid white; 
+            box-shadow: 0 0 8px #38bdf8;
+          "></div>
+        `,
+        iconSize: [10, 10],
+        iconAnchor: [5, 5]
+      });
+
+      const marker = L.marker([player.pos.lat, player.pos.lng], { icon }).addTo(miniMap);
+      marker.bindTooltip(`👤 ${player.name} (Lv.${player.level})`, {
+        direction: 'top',
+        offset: [0, -6],
+        className: 'text-[9px] font-bold px-1 py-0.5'
+      });
+      remotePlayerMarkersRef.current.push(marker);
+    });
+  }, [multiplayerPlayers]);
 
   return (
     <div

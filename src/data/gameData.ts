@@ -1,8 +1,10 @@
 import { StarterCompanion, CityData } from '../types';
-import { CITY_TRANSIT_STATIONS, CITY_LESSONS_INFO, SEOUL_CITY, BERLIN_CITY } from './transitData';
+import { CITY_TRANSIT_STATIONS, CITY_LESSONS_INFO, DUBLIN_CITY, BERLIN_CITY } from './transitData';
 import { EXPANDED_CITIES_13_TO_26 } from './expandedCities';
+import { ADDITIONAL_CITY_MONSTERS } from './additionalMonsters';
+import { NEW_CITIES_27_TO_36 } from './newCities27To36';
 
-export const APP_VERSION = '1.9.5';
+export const APP_VERSION = '1.10.0';
 
 export const STARTERS: StarterCompanion[] = [
   {
@@ -1492,20 +1494,27 @@ const BASE_CITIES: any[] = [
 ];
 
 export const INITIAL_CITIES: CityData[] = [
-  ...BASE_CITIES.map((c: any) => ({
-    ...c,
-    lessonTitle: CITY_LESSONS_INFO[c.id]?.title || `Lesson: ${c.name} English Exploration`,
-    lessonGrammarRule: CITY_LESSONS_INFO[c.id]?.grammarRule || 'Master key English patterns and structures on this city road.',
-    stations: CITY_TRANSIT_STATIONS[c.id] || [],
-    monsters: (c.monsters || []).map((m: any, idx: number) => ({
-      ...m,
-      rarity: m.rarity || (idx === c.monsters.length - 1 ? 'Legendary' : idx % 2 === 0 ? 'Rare' : 'Common'),
-      auraColor: m.auraColor || (m.type === 'Electric' ? '#F59E0B' : m.type === 'Fire' ? '#EF4444' : m.type === 'Water' ? '#0284C7' : m.type === 'Grass' ? '#10B981' : '#8B5CF6'),
-      lessonTopic: m.lessonTopic || `${c.name} Core Skill #${idx + 1}`
-    }))
-  })),
-  SEOUL_CITY,
+  ...BASE_CITIES.map((c: any) => {
+    const combinedMonsters = [...(c.monsters || []), ...(ADDITIONAL_CITY_MONSTERS[c.id] || [])];
+    return {
+      ...c,
+      lessonTitle: CITY_LESSONS_INFO[c.id]?.title || `Lesson: ${c.name} English Exploration`,
+      lessonGrammarRule: CITY_LESSONS_INFO[c.id]?.grammarRule || 'Master key English patterns and structures on this city road.',
+      stations: CITY_TRANSIT_STATIONS[c.id] || [],
+      monsters: combinedMonsters.map((m: any, idx: number) => ({
+        ...m,
+        rarity: m.rarity || (idx === combinedMonsters.length - 1 ? 'Legendary' : idx % 2 === 0 ? 'Rare' : 'Common'),
+        auraColor: m.auraColor || (m.type === 'Electric' ? '#F59E0B' : m.type === 'Fire' ? '#EF4444' : m.type === 'Water' ? '#0284C7' : m.type === 'Grass' ? '#10B981' : '#8B5CF6'),
+        lessonTopic: m.lessonTopic || `${c.name} Core Skill #${idx + 1}`
+      }))
+    };
+  }),
+  DUBLIN_CITY,
   BERLIN_CITY,
-  ...EXPANDED_CITIES_13_TO_26
+  ...EXPANDED_CITIES_13_TO_26.map(c => ({
+    ...c,
+    monsters: [...c.monsters, ...(ADDITIONAL_CITY_MONSTERS[c.id] || [])]
+  })),
+  ...NEW_CITIES_27_TO_36
 ];
 

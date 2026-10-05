@@ -1,6 +1,7 @@
 import React from 'react';
-import { Settings, Volume2, VolumeX, Map, Check, X, ShieldAlert, Sparkles, Sliders, Save, RotateCcw, ArrowRight, Thermometer } from 'lucide-react';
+import { Settings, Volume2, VolumeX, Map, Check, X, ShieldAlert, Sparkles, Sliders, Save, RotateCcw, ArrowRight, Thermometer, History } from 'lucide-react';
 import { soundEffects } from '../utils/audio';
+import { APP_VERSION } from '../data/updateLogs';
 
 interface SettingsModalProps {
   showMiniMap: boolean;
@@ -11,6 +12,7 @@ interface SettingsModalProps {
   onToggleTempUnit?: (unit: 'C' | 'F') => void;
   onOpenSaveSystem?: () => void;
   onResetClick?: () => void;
+  onOpenUpdateLogs?: () => void;
   onClose: () => void;
 }
 
@@ -23,6 +25,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onToggleTempUnit,
   onOpenSaveSystem,
   onResetClick,
+  onOpenUpdateLogs,
   onClose
 }) => {
   return (
@@ -243,11 +246,39 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           )}
 
-          {/* 5. Controls Info Tip */}
+          {/* 5. Version History & Update Logs */}
+          <div className="p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700 flex items-center justify-between gap-3">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <History className="w-4 h-4 text-emerald-400" />
+                <span className="text-sm font-bold text-white">Release Notes & Updates</span>
+                <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 font-mono border border-emerald-500/30">
+                  v{APP_VERSION}
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Review complete changelog from v1.0.0 through v1.9.6 including walking improvements.
+              </p>
+            </div>
+
+            <button
+              id="settings-open-updates-btn"
+              onClick={() => {
+                soundEffects.playSelect();
+                onOpenUpdateLogs?.();
+              }}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-600/30 transition cursor-pointer shrink-0 active:scale-95"
+            >
+              <History className="w-3.5 h-3.5" />
+              <span>Changelog</span>
+            </button>
+          </div>
+
+          {/* 6. Controls Info Tip */}
           <div className="p-3 rounded-2xl bg-sky-950/40 border border-sky-800/50 flex items-start gap-2.5 text-xs text-sky-200">
             <Sparkles className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
             <div className="leading-relaxed">
-              <strong>Tip:</strong> You can walk with <strong>WASD</strong> or touch the <strong>Virtual Joystick</strong> on mobile!
+              <strong>Tip:</strong> Hold <strong>W, A, S, D</strong> or touch the <strong>Virtual Joystick</strong> for 60FPS continuous smooth walking!
             </div>
           </div>
 
@@ -255,12 +286,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {/* Footer */}
         <div className="p-4 bg-slate-850 border-t border-slate-800 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-400">WordQuest</span>
-            <span className="px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-400 font-mono text-[11px] font-bold border border-sky-500/30">
-              v1.9.5
+          <button
+            onClick={() => {
+              soundEffects.playSelect();
+              onOpenUpdateLogs?.();
+            }}
+            className="flex items-center gap-2 cursor-pointer group"
+            title="Click to view full Update Logs"
+          >
+            <span className="text-xs font-bold text-slate-400 group-hover:text-white transition">WordQuest</span>
+            <span className="px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-400 font-mono text-[11px] font-bold border border-sky-500/30 group-hover:border-sky-400 transition">
+              v{APP_VERSION}
             </span>
-          </div>
+          </button>
 
           <button
             onClick={() => {

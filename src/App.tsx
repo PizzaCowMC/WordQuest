@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { INITIAL_CITIES, STARTERS } from './data/gameData';
-import { CityData, Monster, StarterCompanion, StudentProfile, TrainerAppearance, TransitStation, VehicleType, WeatherCondition } from './types';
+import { STARTERS } from './data/gameData';
+import { ALL_150_CITIES } from './data/worldCities150';
+import { CityData, Monster, StarterCompanion, StudentProfile, TrainerAppearance, TransitStation, VehicleType, WeatherCondition, MultiplayerPlayer, CityBuilding } from './types';
 import { CityMapView } from './components/CityMapView';
 import { BattleModal } from './components/BattleModal';
 import { FlightSequence } from './components/FlightSequence';
@@ -11,13 +12,23 @@ import { PhoneModal } from './components/PhoneModal';
 import { ResetConfirmModal } from './components/ResetConfirmModal';
 import { SaveSystemModal } from './components/SaveSystemModal';
 import { DailyRewardModal } from './components/DailyRewardModal';
+import { MultiplayerChatDrawer } from './components/MultiplayerChatDrawer';
+import { MultiplayerTrainerCardModal } from './components/MultiplayerTrainerCardModal';
+import { MultiplayerDuelModal } from './components/MultiplayerDuelModal';
+import { UpdateLogsModal } from './components/UpdateLogsModal';
+import { BuildingModal } from './components/BuildingModal';
+import { AirportTerminalModal } from './components/AirportTerminalModal';
+import { DailyMissionsModal } from './components/DailyMissionsModal';
+import { updateMissionProgress } from './utils/dailyMissions';
+import { useMultiplayer } from './hooks/useMultiplayer';
 import { toggleSound, isSoundEnabled, soundEffects } from './utils/audio';
 import { getRandomWeatherForTimestamp } from './utils/weatherUtils';
+import { getRandomDuelQuestion } from './utils/questionUtils';
 
 const STORAGE_KEY = 'wordquest_student_profile';
 
 export default function App() {
-  const [allCities] = useState<CityData[]>(INITIAL_CITIES);
+  const [allCities] = useState<CityData[]>(ALL_150_CITIES);
   const [currentCityIndex, setCurrentCityIndex] = useState<number>(0);
 
   const [student, setStudent] = useState<StudentProfile | null>(() => {
@@ -81,9 +92,14 @@ export default function App() {
   const [showPhoneModal, setShowPhoneModal] = useState<boolean>(false);
   const [showSaveModal, setShowSaveModal] = useState<boolean>(false);
   const [showDailyRewardModal, setShowDailyRewardModal] = useState<boolean>(false);
+  const [selectedBuilding, setSelectedBuilding] = useState<CityBuilding | null>(null);
+  const [showAirportModal, setShowAirportModal] = useState<boolean>(false);
+  const [showDailyMissionsModal, setShowDailyMissionsModal] = useState<boolean>(false);
+  const [customFlightDestination, setCustomFlightDestination] = useState<CityData | null>(null);
   const [selectedStation, setSelectedStation] = useState<TransitStation | null>(null);
   const [fastTravelTarget, setFastTravelTarget] = useState<TransitStation | null>(null);
   const [showResetModal, setShowResetModal] = useState<boolean>(false);
+  const [showUpdateLogsModal, setShowUpdateLogsModal] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(!isSoundEnabled());
   
   // Real-time Mini-Map HUD state (Off by default as requested by user)
@@ -108,10 +124,19 @@ export default function App() {
     });
   };
 
-  // Derive current & next city along the 26-city global route
+  // Derive current & next city along the 150-city global route
   const currentCity = allCities[currentCityIndex] || allCities[0];
   const nextCityIndex = (currentCityIndex + 1) % allCities.length;
   const secondCity = allCities[nextCityIndex];
+
+  // Real-time Multiplayer WebSocket hook
+  const multiplayer = useMultiplayer({
+    student,
+    currentCity,
+    cityIndex: currentCityIndex,
+  });
+
+  const [selectedRemotePlayer, setSelectedRemotePlayer] = useState<MultiplayerPlayer | null>(null);
 
   // Save student to localStorage
   useEffect(() => {
@@ -219,6 +244,10 @@ export default function App() {
     setStudent(null);
     setCurrentCityIndex(0);
     setActiveBattleMonster(null);
+    setSelectedBuilding(null);
+    setShowAirportModal(false);
+    setShowDailyMissionsModal(false);
+    setCustomFlightDestination(null);
     setShowFlightModal(false);
     setShowFieldGuideModal(false);
     setShowTransitModal(false);
@@ -234,6 +263,20 @@ export default function App() {
   // Handle Battle Victory (defeating a monster with English questions)
   const handleBattleVictory = (monsterId: string, earnedXp: number) => {
     if (!student) return;
+
+    const defeatedMonster = currentCity.monsters.find(m => m.id === monsterId);
+    if (defeatedMonster) {
+      multiplayer.announceMonsterDefeated(defeatedMonster.name, earnedXp);
+    }
+
+    // Daily Mission Progress: Battle defeat
+    updateMissionProgress('battle', 1);
+    if (defeatedMonster?.questions?.some(q => q.category === 'grammar')) {
+      updateMissionProgress('grammar', 1);
+    }
+    if (defeatedMonster?.questions?.some(q => q.category === 'vocabulary')) {
+      updateMissionProgress('vocabulary', 1);
+    }
 
     setStudent(prev => {
       if (!prev) return prev;
@@ -260,11 +303,13 @@ export default function App() {
   };
 
   // Handle Flight Landing in Next City - log travel flight time!
-  const handleLandInSecondCity = (flightMinutes: number = 0) => {
+  const handleLandInSecondCity = (flightMinutes: number = 0, explicitIndex?: number) => {
     soundEffects.playSelect();
     setShowFlightModal(false);
 
-    const nextIndex = (currentCityIndex + 1) % allCities.length;
+    const nextIndex = typeof explicitIndex === 'number' 
+      ? explicitIndex 
+      : (currentCityIndex + 1) % allCities.length;
     const landedCity = allCities[nextIndex];
     setCurrentCityIndex(nextIndex);
 
@@ -278,6 +323,13 @@ export default function App() {
           : [...prev.visitedCities, landedCity.id]
       } : null);
     }
+  };
+
+  // Launch Flight from Physical Airport Terminal
+  const handleLaunchAirportFlight = (targetCity: CityData) => {
+    setCustomFlightDestination(targetCity);
+    setShowAirportModal(false);
+    setShowFlightModal(true);
   };
 
   // Switch Vehicle (Walk, Bicycle, Bus, Taxi, Car, Subway, Train)
@@ -330,6 +382,7 @@ export default function App() {
   const handleFastTravelToStation = (station: TransitStation) => {
     soundEffects.playSelect();
     soundEffects.playVictoryFanfare();
+    updateMissionProgress('transit', 1);
     setFastTravelTarget({ ...station });
     setSelectedStation(station);
     setShowTransitModal(false);
@@ -379,6 +432,13 @@ export default function App() {
           currentWeather={currentWeather}
           tempUnit={tempUnit}
           onToggleTempUnit={handleToggleTempUnit}
+          multiplayerPlayers={multiplayer.players}
+          onSendMovement={multiplayer.sendMovement}
+          onSelectRemotePlayer={(player) => setSelectedRemotePlayer(player)}
+          onOpenUpdateLogs={() => setShowUpdateLogsModal(true)}
+          onOpenBuilding={(building) => setSelectedBuilding(building)}
+          onOpenAirport={() => setShowAirportModal(true)}
+          onOpenDailyMissions={() => setShowDailyMissionsModal(true)}
         />
       )}
 
@@ -396,12 +456,60 @@ export default function App() {
       {showFlightModal && student && (
         <FlightSequence
           currentCity={currentCity}
-          secondCity={secondCity}
+          secondCity={customFlightDestination || secondCity}
           cityIndex={currentCityIndex}
           totalCities={allCities.length}
           student={student}
-          onLandInSecondCity={handleLandInSecondCity}
-          onClose={() => setShowFlightModal(false)}
+          onLandInSecondCity={(flightMinutes) => {
+            const targetIdx = customFlightDestination ? allCities.findIndex(c => c.id === customFlightDestination.id) : undefined;
+            setCustomFlightDestination(null);
+            handleLandInSecondCity(flightMinutes, targetIdx !== -1 ? targetIdx : undefined);
+          }}
+          onClose={() => {
+            setCustomFlightDestination(null);
+            setShowFlightModal(false);
+          }}
+        />
+      )}
+
+      {/* 4b. PHYSICAL AIRPORT TERMINAL MODAL (Boarding pass, check-in, customs security) */}
+      {showAirportModal && student && (
+        <AirportTerminalModal
+          currentCity={currentCity}
+          allCities={allCities}
+          student={student}
+          onLaunchFlight={handleLaunchAirportFlight}
+          onClose={() => setShowAirportModal(false)}
+        />
+      )}
+
+      {/* 4c. BUILDING & FAMOUS MONUMENT MODAL (Monuments where mobs can hide inside) */}
+      {selectedBuilding && student && (
+        <BuildingModal
+          building={selectedBuilding}
+          cityName={currentCity.name}
+          cityMonsters={currentCity.monsters}
+          student={student}
+          onBattleMonster={(monster) => {
+            setSelectedBuilding(null);
+            setActiveBattleMonster(monster);
+          }}
+          onClose={() => setSelectedBuilding(null)}
+        />
+      )}
+
+      {/* 4d. DAILY MISSIONS MODAL (3 Random daily educational tasks) */}
+      {showDailyMissionsModal && student && (
+        <DailyMissionsModal
+          onRewardClaimed={(earnedXp, earnedCoins) => {
+            setStudent(prev => prev ? ({
+              ...prev,
+              xp: prev.xp + earnedXp,
+              coins: prev.coins + earnedCoins,
+              level: Math.floor((prev.xp + earnedXp) / 140) + 5,
+            }) : null);
+          }}
+          onClose={() => setShowDailyMissionsModal(false)}
         />
       )}
 
@@ -452,6 +560,10 @@ export default function App() {
           onToggleMute={handleToggleMute}
           showMiniMap={showMiniMap}
           onToggleMiniMap={handleToggleMiniMap}
+          onOpenUpdateLogs={() => {
+            setShowPhoneModal(false);
+            setShowUpdateLogsModal(true);
+          }}
         />
       )}
 
@@ -481,11 +593,71 @@ export default function App() {
         />
       )}
 
-      {/* 11. RESET CONFIRMATION MODAL */}
+      {/* 10. MULTIPLAYER REAL-TIME CHAT & ROSTER DRAWER */}
+      {student && (
+        <MultiplayerChatDrawer
+          student={student}
+          myPlayerId={multiplayer.myPlayerId}
+          room={multiplayer.room}
+          status={multiplayer.status}
+          players={multiplayer.players}
+          chatMessages={multiplayer.chatMessages}
+          currentCityIndex={currentCityIndex}
+          onSendMessage={multiplayer.sendChat}
+          onSendEmote={multiplayer.sendEmote}
+          onSwitchRoom={multiplayer.switchRoom}
+          onSelectPlayer={(player) => setSelectedRemotePlayer(player)}
+        />
+      )}
+
+      {/* 11. MULTIPLAYER TRAINER CARD MODAL (Click any player on map/roster) */}
+      {selectedRemotePlayer && (
+        <MultiplayerTrainerCardModal
+          player={selectedRemotePlayer}
+          onChallengeDuel={(targetPlayerId) => {
+            const duelQuestion = getRandomDuelQuestion(currentCity.name);
+            multiplayer.inviteToDuel(targetPlayerId, duelQuestion);
+          }}
+          onSendEmote={multiplayer.sendEmote}
+          onClose={() => setSelectedRemotePlayer(null)}
+        />
+      )}
+
+      {/* 12. MULTIPLAYER REAL-TIME 1v1 DUEL MODAL */}
+      {student && (multiplayer.activeDuel || multiplayer.incomingDuelInvite || multiplayer.duelResult) && (
+        <MultiplayerDuelModal
+          student={student}
+          myPlayerId={multiplayer.myPlayerId}
+          activeDuel={multiplayer.activeDuel}
+          incomingDuelInvite={multiplayer.incomingDuelInvite}
+          duelResult={multiplayer.duelResult}
+          onAcceptDuel={(id) => multiplayer.respondToDuel(id, true)}
+          onDeclineDuel={(id) => multiplayer.respondToDuel(id, false)}
+          onAnswerDuel={(id, ans) => multiplayer.answerDuel(id, ans)}
+          onClose={multiplayer.dismissDuel}
+          onAwardReward={(coins, xp) => {
+            setStudent(prev => prev ? ({
+              ...prev,
+              coins: (prev.coins || 0) + coins,
+              xp: prev.xp + xp,
+              level: Math.floor((prev.xp + xp) / 140) + 5,
+            }) : null);
+          }}
+        />
+      )}
+
+      {/* 13. RESET CONFIRMATION MODAL */}
       {showResetModal && (
         <ResetConfirmModal
           onConfirm={handleConfirmReset}
           onCancel={() => setShowResetModal(false)}
+        />
+      )}
+
+      {/* 14. RELEASE NOTES & UPDATE LOGS MODAL (v1.0.0 - v1.9.6) */}
+      {showUpdateLogsModal && (
+        <UpdateLogsModal
+          onClose={() => setShowUpdateLogsModal(false)}
         />
       )}
     </main>

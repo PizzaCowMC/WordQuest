@@ -673,6 +673,38 @@ export const CITY_TRANSIT_STATIONS: Record<string, TransitStation[]> = {
       speedMultiplier: 2.6,
       description: 'Catch a classic beige Mercedes taxi in front of the historic monument.'
     }
+  ],
+  dublin: [
+    {
+      id: 'dub-stn-1',
+      name: 'Pearse Station / Trinity Rail Hub',
+      position: [53.3435, -6.2495],
+      type: 'train',
+      lines: ['DART Coastal Rail', 'Commuter Rail'],
+      icon: '🚅',
+      speedMultiplier: 5.0,
+      description: 'Historical Victorian station connecting coastal Irish sea towns with downtown.'
+    },
+    {
+      id: 'dub-stn-2',
+      name: 'Westmoreland Luas Tram Stop',
+      position: [53.3461, -6.2592],
+      type: 'subway',
+      lines: ['Luas Green Line', 'Luas Cross City'],
+      icon: '🚇',
+      speedMultiplier: 3.5,
+      description: 'Central modern tram line gliding past Trinity College and the River Liffey.'
+    },
+    {
+      id: 'dub-stn-3',
+      name: 'Temple Bar Culture Cab Stand',
+      position: [53.3452, -6.2648],
+      type: 'taxi',
+      lines: ['Dublin City Cabs'],
+      icon: '🚕',
+      speedMultiplier: 2.6,
+      description: 'Cobblestone cab stop right beside historic live music pubs and theatres.'
+    }
   ]
 };
 
@@ -727,8 +759,13 @@ export const CITY_LESSONS_INFO: Record<string, { title: string; grammarRule: str
     grammarRule: 'Present Perfect: "have/has + past participle" connects past experience to the present moment: "I have traveled around the world."',
     summary: 'Conquer the volcanic summit of Diamond Head to become a World Master.'
   },
+  dublin: {
+    title: 'Lesson 11: Irish Literature, Idioms & Prepositions',
+    grammarRule: 'Prepositions of place and direction: "across the River Liffey", "along the cobblestones", "within the college walls".',
+    summary: 'Explore historic Trinity College and Temple Bar while discovering rich literary expressions.'
+  },
   seoul: {
-    title: 'Lesson 11: Phrasal Verbs & Modern Tech Idioms',
+    title: 'Lesson 9: Phrasal Verbs & Modern Tech Idioms',
     grammarRule: 'Phrasal verbs combine a verb with a particle (turn on, look up, figure out). Their meaning is idiomatic and transformative!',
     summary: 'Decipher dynamic idioms in the high-tech streets of Gangnam and Myeongdong.'
   },
@@ -737,6 +774,196 @@ export const CITY_LESSONS_INFO: Record<string, { title: string; grammarRule: str
     grammarRule: 'Passive Voice: "Subject + be + past participle" focuses on the action: "The message was delivered across the world."',
     summary: 'Master advanced academic and communicative structures by the historic Brandenburg Gate.'
   }
+};
+
+// City 11: Dublin, Ireland
+export const DUBLIN_CITY: CityData = {
+  id: 'dublin',
+  name: 'Dublin',
+  country: 'Ireland',
+  coordinates: [53.3498, -6.2603],
+  zoom: 14,
+  lessonTitle: CITY_LESSONS_INFO.dublin.title,
+  lessonGrammarRule: CITY_LESSONS_INFO.dublin.grammarRule,
+  welcomeMessage: 'Welcome to Dublin (City 11/36)! Walk through Trinity College and historic Temple Bar while defeating Celtic mythological beasts to unlock Berlin!',
+  landmarks: ['Trinity College & Book of Kells', 'Temple Bar Quarter', 'Dublin Castle', "Ha'penny Bridge"],
+  stations: CITY_TRANSIT_STATIONS.dublin,
+  monsters: [
+    {
+      id: 'dub-1',
+      name: 'ShamrockSprite',
+      type: 'Grass',
+      level: 21,
+      hp: 3,
+      maxHp: 3,
+      position: [53.3440, -6.2540],
+      streetName: 'Trinity College Parliament Square',
+      spriteColor: '#10B981',
+      description: 'A cheerful emerald sprite weaving three-leaf shamrock blessings around the Long Room Library!',
+      avatarIcon: '☘️',
+      rarity: 'Common',
+      auraColor: '#34D399',
+      lessonTopic: 'Prepositions of Movement & Place',
+      questions: [
+        {
+          id: 'dub-1-q1',
+          category: 'grammar',
+          questionText: 'We strolled _____ the historic cobblestones of Temple Bar toward the River Liffey.',
+          hint: 'Movement along a surface or path: along',
+          options: ['along', 'onto into', 'above of', 'underneath with'],
+          correctIndex: 0,
+          explanation: 'We use "along" to describe movement following the line or path of a road, street, or river.',
+          moveName: 'Emerald Clover Whirl'
+        },
+        {
+          id: 'dub-1-q2',
+          category: 'vocabulary',
+          questionText: 'A three-leaved clover used as a national symbol of Ireland is a ______.',
+          hint: 'S-h-a-m-r-o-c-k',
+          options: ['shamrock', 'thistle', 'tulip', 'cactus'],
+          correctIndex: 0,
+          explanation: 'The "shamrock" is a young sprig of clover used as a symbol of Ireland and Saint Patrick.',
+          moveName: 'Verdant Meadow Burst'
+        },
+        {
+          id: 'dub-1-q3',
+          category: 'reading',
+          questionText: '"You can never be overdressed or overeducated." (Oscar Wilde)\nWhat value does this celebrated Irish playwright place on lifelong learning?',
+          hint: 'Education and knowledge are always worthwhile and can never be too abundant',
+          options: ['Knowledge and deep learning are invaluable gifts that one can never have too much of', 'Clothes are more important than thinking', 'Stop studying after age 10', 'Books are boring'],
+          correctIndex: 0,
+          explanation: 'Oscar Wilde wittily affirmed that pursuing education and elegance is always worthy and enriching.',
+          moveName: 'Wit of Wilde Ray'
+        },
+        {
+          id: 'dub-1-q4',
+          category: 'spelling',
+          questionText: 'Which word is spelled correctly for an ancient illustrated manuscript written by hand?',
+          hint: 'M-a-n-u-s-c-r-i-p-t',
+          options: ['manuscript', 'mannuscript', 'manuscribt', 'manuskript'],
+          correctIndex: 0,
+          explanation: '"Manuscript" is spelled M-A-N-U-S-C-R-I-P-T.',
+          moveName: 'Book of Kells Ward'
+        }
+      ]
+    },
+    {
+      id: 'dub-2',
+      name: 'LeprechaunPuck',
+      type: 'Electric',
+      level: 22,
+      hp: 3,
+      maxHp: 3,
+      position: [53.3455, -6.2637],
+      streetName: 'Temple Bar Square / Fleet Street',
+      spriteColor: '#F59E0B',
+      description: 'A crafty mischief sprite with a pot of golden spark coins and a witty tongue!',
+      avatarIcon: '🎩',
+      rarity: 'Rare',
+      auraColor: '#FBBF24',
+      lessonTopic: 'Phrasal Verbs with "Turn"',
+      questions: [
+        {
+          id: 'dub-2-q1',
+          category: 'grammar',
+          questionText: 'When traveling in Dublin, unexpected sunny weather can _____ at any moment.',
+          hint: 'Phrasal verb meaning to arrive or happen unexpectedly: turn up',
+          options: ['turn up', 'turn out of', 'turn down into', 'turn away on'],
+          correctIndex: 0,
+          explanation: '"Turn up" means to appear, arrive, or happen unexpectedly.',
+          moveName: 'Pot of Gold Flare'
+        },
+        {
+          id: 'dub-2-q2',
+          category: 'vocabulary',
+          questionText: 'A supernatural creature in Irish folklore pictured as a little bearded man who mends shoes is a ______.',
+          hint: 'L-e-p-r-e-c-h-a-u-n',
+          options: ['leprechaun', 'goblin', 'cyclops', 'minotaur'],
+          correctIndex: 0,
+          explanation: 'A "leprechaun" is a diminutive supernatural being in Irish mythology, often associated with a pot of gold.',
+          moveName: 'Rainbow Arc Shock'
+        },
+        {
+          id: 'dub-2-q3',
+          category: 'reading',
+          questionText: 'If someone in Ireland says they have the "Gift of the Gab", what extraordinary talent do they possess?',
+          hint: 'The ability to speak eloquently, persuasively, and charmingly',
+          options: ['The talent to speak eloquently, smoothly, and persuasively', 'The ability to run fast', 'A package of gifts', 'The power of silence'],
+          correctIndex: 0,
+          explanation: 'The "gift of the gab" (often linked to kissing the Blarney Stone) means having great eloquence and conversational charm.',
+          moveName: 'Blarney Stone Spark'
+        },
+        {
+          id: 'dub-2-q4',
+          category: 'spelling',
+          questionText: 'Which word is spelled correctly for a multicolored meteorological bow in the sky?',
+          hint: 'R-a-i-n-b-o-w',
+          options: ['rainbow', 'rainboe', 'raynbow', 'ranbow'],
+          correctIndex: 0,
+          explanation: '"Rainbow" is spelled R-A-I-N-B-O-W.',
+          moveName: 'Golden Coin Blast'
+        }
+      ]
+    },
+    {
+      id: 'dub-3',
+      name: 'BansheeSiren',
+      type: 'Wind',
+      level: 23,
+      hp: 3,
+      maxHp: 3,
+      position: [53.3429, -6.2674],
+      streetName: 'Dame Street / Dublin Castle Upper Yard',
+      spriteColor: '#6366F1',
+      description: 'A silver-haired spectral wind sovereign howling haunting ancient ballads over Dublin Castle!',
+      avatarIcon: '🌬️',
+      rarity: 'Epic',
+      auraColor: '#818CF8',
+      lessonTopic: 'Modal Verbs of Obligation (Must, Have to, Need to)',
+      questions: [
+        {
+          id: 'dub-3-q1',
+          category: 'grammar',
+          questionText: 'All international visitors _____ possess a valid travel passport when boarding European flights.',
+          hint: 'Strong official rule / obligation: must',
+          options: ['must', 'might', 'could', 'would'],
+          correctIndex: 0,
+          explanation: 'We use "must" (or "have to") to express an imperative requirement or rule of law.',
+          moveName: 'Celtic Wind Wail'
+        },
+        {
+          id: 'dub-3-q2',
+          category: 'vocabulary',
+          questionText: 'A traditional narrative poem or song that tells a dramatic historic legend is a ______.',
+          hint: 'B-a-l-l-a-d',
+          options: ['ballad', 'novel', 'monologue', 'dictionary'],
+          correctIndex: 0,
+          explanation: 'A "ballad" is a poem or song narrating a story in short stanzas, traditional in Irish culture.',
+          moveName: 'Gaelic Gale'
+        },
+        {
+          id: 'dub-3-q3',
+          category: 'reading',
+          questionText: '"A stranger is just a friend you haven\'t met yet." (W.B. Yeats)\nWhat does this celebrated Irish quote reflect about warm hospitality?',
+          hint: 'Treating all newcomers with warmth, openness, and friendly curiosity',
+          options: ['Treating newcomers and travelers with immediate warmth, empathy, and welcoming kindness', 'Avoid talking to anyone', 'Lock all doors', 'Strangers are dangerous'],
+          correctIndex: 0,
+          explanation: 'Attributed to Nobel laureate W.B. Yeats, this quote captures the warm, welcoming spirit of Irish culture.',
+          moveName: 'Yeats Silver Verse'
+        },
+        {
+          id: 'dub-3-q4',
+          category: 'spelling',
+          questionText: 'Which word is spelled correctly for a medieval royal fortified residence?',
+          hint: 'C-a-s-t-l-e',
+          options: ['castle', 'casle', 'castel', 'kassle'],
+          correctIndex: 0,
+          explanation: '"Castle" is spelled C-A-S-T-L-E.',
+          moveName: 'Dublin Castle Aura'
+        }
+      ]
+    }
+  ]
 };
 
 // New City 11: Seoul, South Korea

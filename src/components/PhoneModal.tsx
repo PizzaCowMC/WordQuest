@@ -52,6 +52,7 @@ interface PhoneModalProps {
   onOpenFieldGuide?: () => void;
   onOpenSaveSystem?: () => void;
   onOpenDailyReward?: () => void;
+  onOpenUpdateLogs?: () => void;
   onClose: () => void;
   isMuted?: boolean;
   onToggleMute?: () => void;
@@ -74,6 +75,7 @@ export const PhoneModal: React.FC<PhoneModalProps> = ({
   onOpenFieldGuide,
   onOpenSaveSystem,
   onOpenDailyReward,
+  onOpenUpdateLogs,
   onClose,
   isMuted = false,
   onToggleMute,
@@ -428,6 +430,25 @@ export const PhoneModal: React.FC<PhoneModalProps> = ({
                     </div>
                     <span className="text-xs font-bold text-slate-200">Settings</span>
                     <span className="text-[9px] text-slate-400 -mt-1">Controls</span>
+                  </button>
+
+                  {/* App 10: System Updates & Release Logs */}
+                  <button
+                    id="phone-open-updates-app-btn"
+                    onClick={() => {
+                      soundEffects.playSelect();
+                      if (onOpenUpdateLogs) {
+                        onClose();
+                        onOpenUpdateLogs();
+                      }
+                    }}
+                    className="flex flex-col items-center gap-1.5 p-2.5 rounded-2xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700 hover:border-emerald-400 transition cursor-pointer group col-span-3 sm:col-span-1"
+                  >
+                    <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center text-2xl shadow group-hover:scale-110 transition">
+                      🚀
+                    </div>
+                    <span className="text-xs font-bold text-slate-200">Updates</span>
+                    <span className="text-[9px] text-emerald-300 font-mono -mt-1 font-semibold">v1.9.6 Logs</span>
                   </button>
 
                 </div>

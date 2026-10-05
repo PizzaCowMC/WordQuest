@@ -1,12 +1,14 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 
 interface VirtualJoystickProps {
-  onMove: (dir: 'W' | 'A' | 'S' | 'D') => void;
+  onMove?: (dir: 'W' | 'A' | 'S' | 'D') => void;
+  onVectorChange?: (vector: { x: number; y: number } | null) => void;
   speedMultiplier?: number;
 }
 
 export const VirtualJoystick: React.FC<VirtualJoystickProps> = ({
   onMove,
+  onVectorChange,
   speedMultiplier = 1.0
 }) => {
   const joystickBaseRef = useRef<HTMLDivElement>(null);
@@ -17,9 +19,10 @@ export const VirtualJoystick: React.FC<VirtualJoystickProps> = ({
 
   const RADIUS = 44; // max distance knob can travel from center
 
-  // Continuous movement tick while holding joystick off-center
+  // Continuous movement tick fallback for legacy onMove listeners
   useEffect(() => {
     if (!activeVector) {
+      onVectorChange?.(null);
       if (moveIntervalRef.current) {
         clearInterval(moveIntervalRef.current);
         moveIntervalRef.current = null;
@@ -27,38 +30,41 @@ export const VirtualJoystick: React.FC<VirtualJoystickProps> = ({
       return;
     }
 
-    // Gentler tick interval matching slower walking speed
-    const intervalMs = Math.max(140, Math.floor(220 / Math.max(speedMultiplier, 1.0)));
+    if (onVectorChange) {
+      onVectorChange(activeVector);
+    }
 
-    const tick = () => {
-      const { x, y } = activeVector;
-      const absX = Math.abs(x);
-      const absY = Math.abs(y);
+    // Gentler tick interval matching slower walking speed if onMove is used without onVectorChange
+    if (onMove && !onVectorChange) {
+      const intervalMs = Math.max(140, Math.floor(220 / Math.max(speedMultiplier, 1.0)));
 
-      // Require minimum displacement threshold to prevent accidental drift
-      if (absX < 0.22 && absY < 0.22) return;
+      const tick = () => {
+        const { x, y } = activeVector;
+        const absX = Math.abs(x);
+        const absY = Math.abs(y);
 
-      if (absY > absX) {
-        if (y < 0) onMove('W');
-        else onMove('S');
-      } else {
-        if (x < 0) onMove('A');
-        else onMove('D');
-      }
-    };
+        if (absX < 0.22 && absY < 0.22) return;
 
-    // Initial immediate step
-    tick();
+        if (absY > absX) {
+          if (y < 0) onMove('W');
+          else onMove('S');
+        } else {
+          if (x < 0) onMove('A');
+          else onMove('D');
+        }
+      };
 
-    moveIntervalRef.current = setInterval(tick, intervalMs);
+      tick();
+      moveIntervalRef.current = setInterval(tick, intervalMs);
 
-    return () => {
-      if (moveIntervalRef.current) {
-        clearInterval(moveIntervalRef.current);
-        moveIntervalRef.current = null;
-      }
-    };
-  }, [activeVector, onMove, speedMultiplier]);
+      return () => {
+        if (moveIntervalRef.current) {
+          clearInterval(moveIntervalRef.current);
+          moveIntervalRef.current = null;
+        }
+      };
+    }
+  }, [activeVector, onMove, onVectorChange, speedMultiplier]);
 
   const updateKnobFromCoords = useCallback((clientX: number, clientY: number) => {
     if (!joystickBaseRef.current) return;

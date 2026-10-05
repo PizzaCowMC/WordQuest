@@ -378,7 +378,7 @@ export const SaveSystemModal: React.FC<SaveSystemModalProps> = ({
               <span>Export & Import Save File (.json)</span>
             </div>
             <p className="text-[11px] text-slate-400 mb-3.5">
-              Download your adventure as a file to play on mobile, school computers, or backup your journey across all 26 cities!
+              Download your adventure as a file to play on mobile, school computers, or backup your journey across all 150 world cities and 7,500 road monsters!
             </p>
 
             <div className="grid grid-cols-2 gap-2.5">

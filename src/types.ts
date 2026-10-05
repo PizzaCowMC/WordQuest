@@ -72,10 +72,54 @@ export interface TransitTicket {
   speedMultiplier: number;
 }
 
+export type MissionCategory = 
+  | 'grammar' 
+  | 'exploration' 
+  | 'battle' 
+  | 'vocabulary' 
+  | 'transit' 
+  | 'monument' 
+  | 'duel'
+  | 'airport';
+
+export interface DailyMission {
+  id: string;
+  category: MissionCategory;
+  title: string;
+  description: string;
+  targetCount: number;
+  currentCount: number;
+  xpReward: number;
+  coinReward: number;
+  completed: boolean;
+  claimed: boolean;
+  icon: string;
+}
+
+export interface CityBuilding {
+  id: string;
+  name: string;
+  type: 'museum' | 'palace' | 'tower' | 'cathedral' | 'library' | 'theater' | 'observatory' | 'airport' | 'castle' | 'monument';
+  position: [number, number];
+  icon: string;
+  description: string;
+  historicalFact: string;
+  hiddenMonsterIds?: string[];
+}
+
+export interface CityAirport {
+  id: string;
+  name: string;
+  code: string;
+  position: [number, number];
+  terminalDescription: string;
+}
+
 export interface CityData {
   id: string;
   name: string;
   country: string;
+  continent?: string;
   coordinates: [number, number]; // [lat, lng]
   zoom: number;
   lessonTitle: string;
@@ -85,6 +129,8 @@ export interface CityData {
   landmarks: string[];
   stations: TransitStation[];
   monsters: Monster[];
+  buildings?: CityBuilding[];
+  airport?: CityAirport;
 }
 
 export interface StarterCompanion {
@@ -147,3 +193,59 @@ export interface WeatherInfo {
   description: string;
   ambianceEffect: string;
 }
+
+// -------------------------------------------------------------
+// MULTIPLAYER INTERFACES
+// -------------------------------------------------------------
+
+export interface MultiplayerPlayer {
+  id: string;
+  name: string;
+  avatar: string;
+  clothingColor?: string;
+  companionId?: string;
+  cityIndex: number;
+  cityName: string;
+  pos: { lat: number; lng: number };
+  facing: 'left' | 'right' | 'up' | 'down';
+  vehicle: VehicleType | string;
+  level: number;
+  title: string;
+  lastActive: number;
+  room: string;
+  currentEmote?: {
+    emoji: string;
+    text?: string;
+    timestamp: number;
+  };
+}
+
+export interface ChatMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  senderAvatar?: string;
+  text: string;
+  timestamp: number;
+  room: string;
+  isAnnouncement?: boolean;
+}
+
+export interface DuelSession {
+  id: string;
+  challengerId: string;
+  challengerName: string;
+  opponentId: string;
+  opponentName: string;
+  question: {
+    prompt: string;
+    options: string[];
+    correctAnswer: string;
+  };
+  challengerAnswer?: string;
+  opponentAnswer?: string;
+  winnerId?: string | 'tie';
+  status: 'pending' | 'active' | 'finished';
+  expiresAt: number;
+}
+

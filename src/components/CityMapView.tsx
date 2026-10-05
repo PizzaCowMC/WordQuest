@@ -1,6 +1,17 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import L from 'leaflet';
-import { CityData, Monster, StudentProfile, TransitStation, VehicleType, WeatherCondition } from '../types';
+import { 
+  CityData, 
+  Monster, 
+  StudentProfile, 
+  TransitStation, 
+  VehicleType, 
+  WeatherCondition, 
+  MultiplayerPlayer,
+  CityBuilding,
+  CityAirport,
+  ElementType
+} from '../types';
 import { VEHICLE_OPTIONS } from '../data/transitData';
 import { soundEffects } from '../utils/audio';
 import { 
@@ -13,22 +24,23 @@ import {
   Award, 
   Plane,
   HelpCircle,
-  ArrowUp,
-  ArrowDown,
-  ArrowLeft,
-  ArrowRight,
-  Navigation,
   Smartphone,
-  Map as MapIcon,
   Settings as SettingsIcon,
   Gift,
-  Train
+  Train,
+  Target,
+  Landmark,
+  Building2,
+  Sparkles,
+  Maximize2
 } from 'lucide-react';
 import { CityMiniMapOverlay } from './CityMiniMapOverlay';
 import { VirtualJoystick } from './VirtualJoystick';
 import { SettingsModal } from './SettingsModal';
 import { CityWeatherOverlay, CityWeatherWidget } from './CityWeatherOverlay';
 import { getRandomWeatherForTimestamp } from '../utils/weatherUtils';
+import { UpdateLogsModal } from './UpdateLogsModal';
+import { APP_VERSION } from '../data/updateLogs';
 
 interface CityMapViewProps {
   currentCity: CityData;
@@ -54,6 +66,127 @@ interface CityMapViewProps {
   currentWeather?: WeatherCondition;
   tempUnit?: 'C' | 'F';
   onToggleTempUnit?: (unit: 'C' | 'F') => void;
+  multiplayerPlayers?: MultiplayerPlayer[];
+  onSendMovement?: (pos: { lat: number; lng: number }, facing: 'left' | 'right' | 'up' | 'down', vehicle: VehicleType) => void;
+  onSelectRemotePlayer?: (player: MultiplayerPlayer) => void;
+  onOpenUpdateLogs?: () => void;
+  onOpenBuilding?: (building: CityBuilding) => void;
+  onOpenAirport?: () => void;
+  onOpenDailyMissions?: () => void;
+}
+
+// Generate animated SVG elemental mob model
+export function generateMobModelHtml(monster: Monster, isDefeated: boolean, isFacingLeft: boolean): string {
+  if (isDefeated) {
+    return `
+      <div class="relative flex flex-col items-center cursor-pointer group transform transition-transform hover:scale-115">
+        <div class="w-7 h-7 rounded-full bg-slate-800/95 border-2 border-amber-400 shadow-md flex items-center justify-center">
+          <span class="text-sm">⭐</span>
+        </div>
+        <div class="px-1.5 py-0.2 mt-0.5 rounded bg-slate-900/90 border border-amber-500/50 text-[8px] font-bold text-amber-300 shadow">
+          Captured
+        </div>
+      </div>
+    `;
+  }
+
+  const rarity = monster.rarity || 'Epic';
+  const rarityCrown = rarity === 'Legendary' ? '👑' : rarity === 'Epic' ? '💎' : '⭐';
+  const rarityBadgeColor = rarity === 'Legendary' ? 'bg-amber-400 text-slate-950 border-amber-300' : rarity === 'Epic' ? 'bg-purple-500 text-white border-purple-300' : 'bg-sky-500 text-white border-sky-300';
+  const flip = isFacingLeft ? 'scaleX(-1)' : 'scaleX(1)';
+
+  // Element specific decorative particles & accessories
+  let elementEffect = '';
+  switch (monster.type) {
+    case 'Fire':
+      elementEffect = `
+        <div class="absolute -top-3 left-1/2 -translate-x-1/2 flex gap-0.5 pointer-events-none">
+          <span class="text-[11px] animate-bounce" style="animation-duration: 0.9s;">🔥</span>
+        </div>
+      `;
+      break;
+    case 'Water':
+      elementEffect = `
+        <div class="absolute -bottom-1 -right-1 text-[10px] pointer-events-none animate-pulse">💧</div>
+      `;
+      break;
+    case 'Electric':
+      elementEffect = `
+        <div class="absolute -top-3 -right-1 text-[11px] pointer-events-none animate-ping" style="animation-duration: 1.4s;">⚡</div>
+      `;
+      break;
+    case 'Grass':
+      elementEffect = `
+        <div class="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[10px] pointer-events-none">🌿</div>
+      `;
+      break;
+    case 'Psychic':
+      elementEffect = `
+        <div class="absolute -top-2 -right-1 text-[10px] pointer-events-none animate-spin" style="animation-duration: 5s;">🔮</div>
+      `;
+      break;
+    case 'Ice':
+      elementEffect = `
+        <div class="absolute -top-2 -left-1 text-[10px] pointer-events-none animate-pulse">❄️</div>
+      `;
+      break;
+    case 'Dragon':
+      elementEffect = `
+        <div class="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[10px] pointer-events-none animate-bounce" style="animation-duration: 1.8s;">🐲</div>
+      `;
+      break;
+    case 'Fairy':
+      elementEffect = `
+        <div class="absolute -top-2 -right-1 text-[10px] pointer-events-none animate-pulse">✨</div>
+      `;
+      break;
+    case 'Wind':
+      elementEffect = `
+        <div class="absolute -bottom-1 -left-1 text-[10px] pointer-events-none animate-pulse">🌪️</div>
+      `;
+      break;
+    default:
+      break;
+  }
+
+  return `
+    <div class="relative flex flex-col items-center cursor-pointer group transform transition-transform hover:scale-120">
+      
+      {/* Top Floating Rarity Crown & Level Pill */}
+      <div class="flex items-center gap-0.5 mb-0.5">
+        <span class="px-1 py-0.2 rounded-full text-[8px] font-black uppercase border shadow-md ${rarityBadgeColor} flex items-center gap-0.5">
+          <span>${rarityCrown}</span>
+          <span>Lv.${monster.level}</span>
+        </span>
+      </div>
+
+      {/* Animated Creature Model Body */}
+      <div class="relative">
+        <!-- Glowing Pulsing Aura Ring -->
+        <div class="absolute -inset-1.5 rounded-2xl opacity-80 blur-xs animate-pulse" style="background-color: ${monster.auraColor || monster.spriteColor}"></div>
+        
+        <!-- High-fidelity Creature Shield Body with Flip Animation -->
+        <div 
+          class="relative w-9 h-9 rounded-2xl border-2 border-white/95 shadow-2xl flex items-center justify-center animate-bounce"
+          style="background: radial-gradient(circle at 35% 35%, #ffffff 0%, ${monster.spriteColor} 70%, #0f172a 100%); animation-duration: 2.2s; transform: ${flip};"
+        >
+          <span class="text-xl filter drop-shadow select-none leading-none">${monster.avatarIcon}</span>
+          ${elementEffect}
+        </div>
+      </div>
+
+      {/* Mini HP Lifebar */}
+      <div class="w-10 h-1.5 bg-slate-900/90 rounded-full overflow-hidden border border-slate-700 mt-1 p-0.2 shadow">
+        <div class="w-full h-full bg-gradient-to-r from-emerald-400 to-green-500 rounded-full"></div>
+      </div>
+
+      {/* Monster Name & Element Pill */}
+      <div class="px-1.5 py-0.2 mt-0.5 rounded-md bg-slate-900/95 border border-slate-700/80 text-[8px] font-extrabold text-white whitespace-nowrap shadow-lg flex items-center gap-1">
+        <span>${monster.name}</span>
+        <span class="text-[7px] px-1 rounded font-bold bg-slate-800 text-amber-300 border border-slate-700">${monster.type}</span>
+      </div>
+    </div>
+  `;
 }
 
 // Helper to bound player and map strictly inside the city district
@@ -61,15 +194,16 @@ export const computeCityBounds = (city: CityData) => {
   const points: [number, number][] = [
     city.coordinates, 
     ...city.monsters.map(m => m.position),
-    ...(city.stations || []).map(s => s.position)
+    ...(city.stations || []).map(s => s.position),
+    ...(city.buildings || []).map(b => b.position),
+    ...(city.airport ? [city.airport.position] : [])
   ];
   const lats = points.map(p => p[0]);
   const lngs = points.map(p => p[1]);
-  // Tight buffer around all city landmarks and monsters to lock in district
-  const minLat = Math.min(...lats) - 0.007;
-  const maxLat = Math.max(...lats) + 0.007;
-  const minLng = Math.min(...lngs) - 0.010;
-  const maxLng = Math.max(...lngs) + 0.010;
+  const minLat = Math.min(...lats) - 0.040;
+  const maxLat = Math.max(...lats) + 0.040;
+  const minLng = Math.min(...lngs) - 0.055;
+  const maxLng = Math.max(...lngs) + 0.055;
   return {
     minLat,
     maxLat,
@@ -102,14 +236,23 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
   fastTravelTarget,
   currentWeather: propWeather,
   tempUnit = 'C',
-  onToggleTempUnit
+  onToggleTempUnit,
+  multiplayerPlayers = [],
+  onSendMovement,
+  onSelectRemotePlayer,
+  onOpenUpdateLogs,
+  onOpenBuilding,
+  onOpenAirport,
+  onOpenDailyMissions,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const playerMarkerRef = useRef<L.Marker | null>(null);
   const monsterMarkersRef = useRef<{ [id: string]: L.Marker }>({});
   const stationMarkersRef = useRef<{ [id: string]: L.Marker }>({});
-  const tileLayerRef = useRef<L.TileLayer | null>(null);
+  const buildingMarkersRef = useRef<{ [id: string]: L.Marker }>({});
+  const airportMarkerRef = useRef<L.Marker | null>(null);
+  const remotePlayerMarkersRef = useRef<{ [id: string]: L.Marker }>({});
 
   // Check if daily reward has been claimed today
   const todayStr = new Date().toLocaleDateString('en-CA');
@@ -120,11 +263,53 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
   const [mapStyle, setMapStyle] = useState<'streets' | 'satellite'>('streets');
   const [facingDirection, setFacingDirection] = useState<'N' | 'S' | 'E' | 'W'>('N');
   const [isWalking, setIsWalking] = useState<boolean>(false);
-  const [currentZoom, setCurrentZoom] = useState<number>(Math.max(currentCity.zoom || 15, 14));
+  const [currentZoom, setCurrentZoom] = useState<number>(Math.max(currentCity.zoom || 13, 12));
+  const [showUpdateLogsModal, setShowUpdateLogsModal] = useState<boolean>(false);
+
+  // Smooth continuous physics velocity vector refs (vx, vy)
+  const playerPosRef = useRef<[number, number]>(currentCity.coordinates);
+  const velRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const keysDownRef = useRef<Set<string>>(new Set());
+  const joystickVectorRef = useRef<{ x: number; y: number } | null>(null);
+
+  // Autonomous Mob Roaming Simulation State
+  const mobSimRef = useRef<Map<string, {
+    lat: number;
+    lng: number;
+    anchorLat: number;
+    anchorLng: number;
+    targetLat: number;
+    targetLng: number;
+    isFacingLeft: boolean;
+    nextWanderTime: number;
+  }>>(new Map());
+
+  // Initialize mob roaming positions whenever city changes
+  useEffect(() => {
+    playerPosRef.current = currentCity.coordinates;
+    velRef.current = { x: 0, y: 0 };
+    setPlayerPosition(currentCity.coordinates);
+
+    mobSimRef.current.clear();
+    currentCity.monsters.forEach(m => {
+      mobSimRef.current.set(m.id, {
+        lat: m.position[0],
+        lng: m.position[1],
+        anchorLat: m.position[0],
+        anchorLng: m.position[1],
+        targetLat: m.position[0],
+        targetLng: m.position[1],
+        isFacingLeft: false,
+        nextWanderTime: Date.now() + 1000 + Math.random() * 3000
+      });
+    });
+  }, [currentCity.id]);
 
   // Handle City Express Lines Fast Travel Teleport
   useEffect(() => {
     if (fastTravelTarget && fastTravelTarget.position) {
+      playerPosRef.current = fastTravelTarget.position;
+      velRef.current = { x: 0, y: 0 };
       setPlayerPosition(fastTravelTarget.position);
       if (mapInstanceRef.current) {
         mapInstanceRef.current.flyTo(fastTravelTarget.position, 16, { animate: true, duration: 1.2 });
@@ -132,7 +317,7 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
     }
   }, [fastTravelTarget]);
 
-  // Dynamic Random Weather System (Random weather changes every 15 min, no manual override)
+  // Dynamic Random Weather System
   const [internalWeather, setInternalWeather] = useState<WeatherCondition>(() => {
     return getRandomWeatherForTimestamp(Date.now());
   });
@@ -147,20 +332,19 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
 
   const effectiveWeather = propWeather || internalWeather;
 
-  // Invalidate map size whenever weather changes to guarantee Leaflet raster tiles never vanish
   useEffect(() => {
     if (mapInstanceRef.current) {
       mapInstanceRef.current.invalidateSize();
     }
   }, [effectiveWeather]);
   
-  // Local mini-map radar overlay fallback (OFF by default as requested by user)
+  // Local mini-map radar overlay
   const [localShowMiniMap, setLocalShowMiniMap] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem('wordquest_minimap_enabled');
-      return saved !== null ? saved === 'true' : false; // Default: false (OFF)
+      return saved !== null ? saved === 'true' : false;
     } catch {
-      return false; // Default: false (OFF)
+      return false;
     }
   });
 
@@ -183,7 +367,6 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
   }, [propOnToggleMiniMap]);
 
   const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
-  const walkingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Check how many monsters in this city are defeated
   const defeatedCount = currentCity.monsters.filter(m => 
@@ -192,24 +375,24 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
   const totalMonsters = currentCity.monsters.length;
   const allDefeated = defeatedCount >= totalMonsters && totalMonsters > 0;
 
-  // Player is an Explorer on Foot walking through the city streets (no car)
-  const activeVehicleOption = VEHICLE_OPTIONS[0];
+  // Active Vehicle Option
+  const activeVehicleOption = VEHICLE_OPTIONS.find(v => v.type === student.activeVehicle) || VEHICLE_OPTIONS[0];
 
-  // Initialize and update Leaflet Map with strict bounds and clean OSM tiles (NO zoom-out past city)
+  // Initialize and update Leaflet Map
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
     const cityBounds = computeCityBounds(currentCity);
-    const initialZoom = Math.max(currentCity.zoom || 15, 14);
+    const initialZoom = Math.max(currentCity.zoom || 13, 12);
 
     if (!mapInstanceRef.current) {
       const map = L.map(mapContainerRef.current, {
         center: currentCity.coordinates,
         zoom: initialZoom,
-        minZoom: 14, // Strictly prevents zooming out past street/city district
+        minZoom: 11,
         maxZoom: 18,
         maxBounds: cityBounds.latLngBounds,
-        maxBoundsViscosity: 1.0, // Totally impenetrable boundary
+        maxBoundsViscosity: 0.75,
         worldCopyJump: false,
         zoomControl: false,
         attributionControl: false
@@ -218,7 +401,7 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
       const streetTiles = L.tileLayer(
         'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
         {
-          minZoom: 14,
+          minZoom: 11,
           maxZoom: 18,
           noWrap: true,
           subdomains: ['a', 'b', 'c'],
@@ -226,92 +409,74 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
         }
       ).addTo(map);
 
+      mapInstanceRef.current = map;
+
       map.on('zoomend', () => {
         setCurrentZoom(map.getZoom());
       });
-
-      tileLayerRef.current = streetTiles;
-      mapInstanceRef.current = map;
     } else {
-      mapInstanceRef.current.setMaxBounds(cityBounds.latLngBounds);
-      mapInstanceRef.current.setMinZoom(14);
-      mapInstanceRef.current.setMaxZoom(18);
-      mapInstanceRef.current.setView(currentCity.coordinates, initialZoom);
-      setCurrentZoom(initialZoom);
-      setPlayerPosition(currentCity.coordinates);
+      const map = mapInstanceRef.current;
+      map.setMaxBounds(cityBounds.latLngBounds);
+      map.setView(currentCity.coordinates, initialZoom, { animate: false });
     }
-  }, [currentCity.id, currentCity]);
+  }, [currentCity]);
 
-  // Handle Tile Style switch
+  // Update map tile layer style
   useEffect(() => {
-    if (!mapInstanceRef.current || !tileLayerRef.current) return;
+    if (!mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
 
-    mapInstanceRef.current.removeLayer(tileLayerRef.current);
+    map.eachLayer((layer) => {
+      if (layer instanceof L.TileLayer) {
+        map.removeLayer(layer);
+      }
+    });
 
-    if (mapStyle === 'streets') {
-      tileLayerRef.current = L.tileLayer(
-        'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-        {
-          minZoom: 14,
-          maxZoom: 18,
-          noWrap: true,
-          subdomains: ['a', 'b', 'c'],
-          attribution: '&copy; OpenStreetMap contributors'
-        }
-      ).addTo(mapInstanceRef.current);
-    } else {
-      tileLayerRef.current = L.tileLayer(
-        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-        {
-          minZoom: 14,
-          maxZoom: 18,
-          noWrap: true,
-          attribution: '&copy; Esri'
-        }
-      ).addTo(mapInstanceRef.current);
-    }
+    const url = mapStyle === 'satellite'
+      ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+      : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+
+    L.tileLayer(url, {
+      minZoom: 13,
+      maxZoom: 18,
+      noWrap: true,
+      subdomains: mapStyle === 'satellite' ? [] : ['a', 'b', 'c']
+    }).addTo(map);
   }, [mapStyle]);
 
-  // Render & Update Player Marker with custom avatar, vehicle, outfit color and title (Scale down for clean street proportion)
+  // Render & Update Player Marker
   useEffect(() => {
     if (!mapInstanceRef.current) return;
 
-    const outfitColor = student.appearance?.outfitColor || '#2563EB';
-    const avatarEmoji = student.appearance?.avatar || '🧒';
-    const vehicleIcon = activeVehicleOption.icon;
-    const isRiding = activeVehicleOption.type !== 'walk';
+    const isMale = student.appearance?.genderStyle !== 'girl';
+    const outfitColor = student.appearance?.outfitColor || '#38bdf8';
+    const companionIcon = student.starter?.avatar || '⚡';
 
     const playerHtml = `
-      <div class="relative flex items-center justify-center pointer-events-none select-none">
-        <!-- Compact Radar Pulse Circle -->
-        <div class="absolute -inset-2 rounded-full bg-sky-400/20 animate-ping"></div>
-        <div class="absolute -inset-1 rounded-full ${activeVehicleOption.spriteGlow} border border-sky-400/40 shadow-sm"></div>
+      <div class="relative flex flex-col items-center pointer-events-none select-none">
         
-        <!-- Scaled Down Player Avatar (w-9 h-9) -->
-        <div class="relative w-9 h-9 rounded-xl border-2 border-white shadow-xl flex items-center justify-center transition-transform ${isWalking ? 'scale-110 rotate-3' : ''}" style="background-color: ${outfitColor}">
-          <span class="text-xl filter drop-shadow select-none">${avatarEmoji}</span>
-          
-          <!-- Companion Creature Mini Badge -->
-          <div class="absolute -top-1.5 -left-1.5 w-4 h-4 rounded-full bg-slate-900 border border-white flex items-center justify-center text-[10px] shadow">
-            ${student.starter.avatar}
-          </div>
-
-          <!-- Active Vehicle Mini Badge -->
-          ${isRiding ? `
-            <div class="absolute -bottom-1.5 -right-1.5 w-4 h-4 rounded-full bg-amber-400 border border-slate-900 flex items-center justify-center text-[10px] shadow animate-bounce">
-              ${vehicleIcon}
-            </div>
-          ` : `
-            <div class="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-blue-600 rounded-full border border-white flex items-center justify-center text-[8px] font-bold text-white">
-              ${student.level}
-            </div>
-          `}
+        {/* Companion Pet floating nearby */}
+        <div class="absolute -top-8 -right-4 z-20 w-6 h-6 rounded-full bg-slate-900 border border-amber-400 shadow-lg flex items-center justify-center text-xs animate-bounce" style="animation-duration: 1.5s;">
+          <span>${companionIcon}</span>
         </div>
 
-        <!-- Name & Vehicle Pill -->
-        <div class="absolute -top-7 px-1.5 py-0.2 rounded-full bg-slate-900/95 border border-slate-700 text-[9px] font-bold text-white whitespace-nowrap shadow-md flex items-center gap-1">
+        {/* Dynamic Movement Glow Ripple */}
+        <div class="absolute -inset-2 rounded-full opacity-60 blur-xs transition-opacity duration-200 ${isWalking ? 'bg-sky-400 animate-ping' : 'bg-transparent'}"></div>
+
+        {/* Player Avatar Circle */}
+        <div class="relative w-9 h-9 rounded-full border-2 border-white shadow-2xl flex items-center justify-center text-base" style="background-color: ${outfitColor}">
+          <span>${isMale ? '👦' : '👧'}</span>
+          
+          {/* Level Badge */}
+          <div class="absolute -bottom-1 -right-1 px-1 rounded-full bg-amber-400 text-slate-950 font-black text-[7px] border border-white shadow">
+            ${student.level}
+          </div>
+        </div>
+
+        {/* Player Name Tag */}
+        <div class="px-2 py-0.2 mt-0.5 rounded-full bg-slate-900/95 border border-sky-400/80 text-[8px] font-extrabold text-white whitespace-nowrap shadow flex items-center gap-1">
           <span>${student.name}</span>
-          ${isRiding ? `<span class="text-amber-300 font-mono">(${activeVehicleOption.name})</span>` : ''}
+          <span class="text-[7px] text-sky-300">${activeVehicleOption.icon}</span>
         </div>
       </div>
     `;
@@ -319,8 +484,8 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
     const playerIcon = L.divIcon({
       html: playerHtml,
       className: 'custom-player-marker',
-      iconSize: [36, 36],
-      iconAnchor: [18, 18]
+      iconSize: [36, 44],
+      iconAnchor: [18, 36]
     });
 
     if (!playerMarkerRef.current) {
@@ -332,7 +497,7 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
     }
   }, [playerPosition, student.name, student.level, student.starter.avatar, student.appearance, student.activeVehicle, isWalking, activeVehicleOption]);
 
-  // Render & Update Transit Station Markers on Map (Compact, Clean)
+  // Render & Update Transit Station Markers
   useEffect(() => {
     if (!mapInstanceRef.current) return;
 
@@ -376,7 +541,122 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
     });
   }, [currentCity.stations, onOpenTransitHub]);
 
-  // Render & Update Monster Markers on Map (Scaled down from w-12 to w-9 for street proportion)
+  // Render & Update Famous Monuments and Buildings Markers (where mobs can hide inside)
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+
+    Object.values(buildingMarkersRef.current).forEach(marker => marker.remove());
+    buildingMarkersRef.current = {};
+
+    const buildings = currentCity.buildings || [];
+    buildings.forEach(building => {
+      // Check how many undefeated mobs are lurking inside or near this building
+      const lurkingCount = currentCity.monsters.filter(m => 
+        !student.defeatedMonsterIds.includes(m.id) &&
+        (m.streetName.toLowerCase().includes(building.name.toLowerCase()) ||
+         building.hiddenMonsterIds?.includes(m.id) ||
+         (Math.abs(m.position[0] - building.position[0]) < 0.003 && Math.abs(m.position[1] - building.position[1]) < 0.003))
+      ).length;
+
+      const buildingHtml = `
+        <div class="relative flex flex-col items-center cursor-pointer group transform transition-transform hover:scale-120">
+          
+          ${lurkingCount > 0 ? `
+            <div class="absolute -top-3 z-30 px-1.5 py-0.2 rounded-full bg-gradient-to-r from-red-600 to-amber-600 text-white font-extrabold text-[7px] border border-amber-300 shadow-lg flex items-center gap-0.5 animate-bounce">
+              <span>👀</span>
+              <span>${lurkingCount} Lurking!</span>
+            </div>
+          ` : ''}
+
+          <!-- Building Icon Monument Badge -->
+          <div class="relative w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-900 via-slate-900 to-purple-900 border-2 border-amber-400 shadow-2xl flex items-center justify-center text-xl">
+            <span>${building.icon || '🏛️'}</span>
+          </div>
+
+          <!-- Building Name Tag -->
+          <div class="px-2 py-0.5 mt-0.5 rounded-lg bg-slate-900/95 border border-amber-400/60 text-[9px] font-extrabold text-amber-200 whitespace-nowrap shadow-xl flex items-center gap-1">
+            <span>${building.name}</span>
+          </div>
+          <div class="text-[7px] font-bold uppercase text-slate-300 bg-slate-950/80 px-1 rounded mt-0.5">
+            ${building.type} • Enter to Explore
+          </div>
+        </div>
+      `;
+
+      const buildingIcon = L.divIcon({
+        html: buildingHtml,
+        className: 'custom-building-marker',
+        iconSize: [42, 54],
+        iconAnchor: [21, 46]
+      });
+
+      const marker = L.marker(building.position, { icon: buildingIcon, zIndexOffset: 350 })
+        .addTo(mapInstanceRef.current!);
+
+      marker.on('click', (e) => {
+        L.DomEvent.stopPropagation(e);
+        soundEffects.playSelect();
+        onOpenBuilding?.(building);
+      });
+
+      buildingMarkersRef.current[building.id] = marker;
+    });
+  }, [currentCity.buildings, currentCity.monsters, student.defeatedMonsterIds, onOpenBuilding]);
+
+  // Render & Update Physical Airport Terminal Marker
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+
+    if (airportMarkerRef.current) {
+      airportMarkerRef.current.remove();
+      airportMarkerRef.current = null;
+    }
+
+    const airport = currentCity.airport;
+    if (airport) {
+      const airportHtml = `
+        <div class="relative flex flex-col items-center cursor-pointer group transform transition-transform hover:scale-120">
+          
+          <!-- Flashing runway beacon -->
+          <div class="absolute -top-2 w-3 h-3 rounded-full bg-emerald-400 border border-white animate-ping"></div>
+
+          <!-- Airport Concourse Badge -->
+          <div class="relative w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-600 via-sky-600 to-indigo-700 border-2 border-sky-300 shadow-2xl flex items-center justify-center text-2xl">
+            <span>✈️</span>
+          </div>
+
+          <!-- Airport Name & Code -->
+          <div class="px-2 py-0.5 mt-0.5 rounded-lg bg-slate-900/95 border border-sky-400/80 text-[9px] font-black text-white whitespace-nowrap shadow-xl flex items-center gap-1">
+            <span>${airport.name}</span>
+            <span class="px-1 rounded bg-sky-500/30 text-sky-300 text-[8px] font-mono">${airport.code}</span>
+          </div>
+          <div class="text-[7px] font-extrabold uppercase tracking-wider text-sky-200 bg-sky-950/80 px-1 rounded mt-0.5">
+            International Departure Concourse
+          </div>
+        </div>
+      `;
+
+      const airportIcon = L.divIcon({
+        html: airportHtml,
+        className: 'custom-airport-marker',
+        iconSize: [46, 58],
+        iconAnchor: [23, 50]
+      });
+
+      const marker = L.marker(airport.position, { icon: airportIcon, zIndexOffset: 450 })
+        .addTo(mapInstanceRef.current!);
+
+      marker.on('click', (e) => {
+        L.DomEvent.stopPropagation(e);
+        soundEffects.playSelect();
+        onOpenAirport?.();
+      });
+
+      airportMarkerRef.current = marker;
+    }
+  }, [currentCity.airport, onOpenAirport]);
+
+  // Render & Update Monster Markers (Scaled and optimized for 20 mobs)
   useEffect(() => {
     if (!mapInstanceRef.current) return;
 
@@ -385,52 +665,19 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
 
     currentCity.monsters.forEach(monster => {
       const isDefeated = student.defeatedMonsterIds.includes(monster.id);
-      const rarity = monster.rarity || 'Epic';
-      const rarityBadgeColor = rarity === 'Legendary' ? 'bg-amber-500 text-slate-950 border-amber-300' : rarity === 'Epic' ? 'bg-purple-600 text-white border-purple-300' : 'bg-sky-600 text-white border-sky-300';
-
-      const markerHtml = `
-        <div class="relative flex flex-col items-center cursor-pointer group transform transition-transform hover:scale-115">
-          ${isDefeated ? `
-            <div class="w-7 h-7 rounded-full bg-slate-800/90 border border-amber-400/80 shadow-md flex items-center justify-center">
-              <span class="text-sm">⭐</span>
-            </div>
-            <div class="px-1.5 py-0.2 mt-0.5 rounded bg-slate-900/90 border border-amber-500/50 text-[8px] font-bold text-amber-300 shadow">
-              Captured
-            </div>
-          ` : `
-            <div class="relative">
-              <!-- Glowing Pulsing Aura Ring -->
-              <div class="absolute -inset-1 rounded-xl opacity-75 blur-xs animate-pulse" style="background-color: ${monster.auraColor || monster.spriteColor}"></div>
-              
-              <!-- Monster Avatar Shield (w-9 h-9) -->
-              <div class="relative w-9 h-9 rounded-xl border-2 border-white shadow-xl flex items-center justify-center animate-bounce" style="background-color: ${monster.spriteColor}; animation-duration: 2s;">
-                <span class="text-xl filter drop-shadow select-none">${monster.avatarIcon}</span>
-                <span class="absolute -top-1.5 -right-1.5 px-1 py-0.2 text-[7px] font-black rounded-full border shadow ${rarityBadgeColor}">
-                  ${rarity}
-                </span>
-              </div>
-            </div>
-
-            <!-- Monster Name & Type Tag -->
-            <div class="px-1.5 py-0.2 mt-0.5 rounded-lg bg-slate-900/95 border border-slate-700 text-[9px] font-bold text-white whitespace-nowrap shadow flex items-center gap-1">
-              <span>${monster.name}</span>
-              <span class="text-[8px] px-1 rounded font-semibold bg-slate-800 text-amber-300">${monster.type}</span>
-            </div>
-            <div class="text-[8px] text-slate-300 bg-slate-900/80 px-1 rounded shadow-sm mt-0.5 max-w-[110px] truncate border border-slate-700">
-              📍 ${monster.streetName}
-            </div>
-          `}
-        </div>
-      `;
+      const markerHtml = generateMobModelHtml(monster, isDefeated, false);
 
       const customIcon = L.divIcon({
         html: markerHtml,
         className: 'custom-monster-marker',
-        iconSize: [36, 48],
-        iconAnchor: [18, 40]
+        iconSize: [40, 52],
+        iconAnchor: [20, 44]
       });
 
-      const marker = L.marker(monster.position, { icon: customIcon, zIndexOffset: isDefeated ? 100 : 500 })
+      const sim = mobSimRef.current.get(monster.id);
+      const pos = sim ? [sim.lat, sim.lng] as [number, number] : monster.position;
+
+      const marker = L.marker(pos, { icon: customIcon, zIndexOffset: isDefeated ? 100 : 500 })
         .addTo(mapInstanceRef.current!);
 
       marker.on('click', (e) => {
@@ -443,70 +690,248 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
     });
   }, [currentCity.monsters, student.defeatedMonsterIds, onSelectMonster]);
 
-  // WASD / Keyboard MOVEMENT HANDLER with strict boundary clamping (Impossible to leave map)
-  const moveTrainer = useCallback((dir: 'W' | 'A' | 'S' | 'D') => {
-    // If in battle, ignore movement
-    if (activeMonster) return;
+  // Render & Update Multiplayer Remote Players
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
 
-    // Steady, realistic walking pace for street-level exploration
-    const STEP = 0.00015;
-    const bounds = computeCityBounds(currentCity);
+    const cityPlayers = multiplayerPlayers.filter(p => p.cityIndex === cityIndex);
+    const activeIds = new Set(cityPlayers.map(p => p.id));
 
-    setPlayerPosition(prev => {
-      let [lat, lng] = prev;
-      if (dir === 'W') { // Up / North
-        lat += STEP;
-        setFacingDirection('N');
-      } else if (dir === 'S') { // Down / South
-        lat -= STEP;
-        setFacingDirection('S');
-      } else if (dir === 'A') { // Left / West
-        lng -= STEP;
-        setFacingDirection('W');
-      } else if (dir === 'D') { // Right / East
-        lng += STEP;
-        setFacingDirection('E');
+    Object.keys(remotePlayerMarkersRef.current).forEach(id => {
+      if (!activeIds.has(id)) {
+        remotePlayerMarkersRef.current[id].remove();
+        delete remotePlayerMarkersRef.current[id];
       }
-
-      // IMPOSSIBLE TO GET OUT OF THE MAP: strictly clamp coordinates within district bounds
-      const clampedLat = Math.max(bounds.minLat, Math.min(bounds.maxLat, lat));
-      const clampedLng = Math.max(bounds.minLng, Math.min(bounds.maxLng, lng));
-      const newPos: [number, number] = [clampedLat, clampedLng];
-
-      // Check proximity to any undefeated monster
-      currentCity.monsters.forEach(m => {
-        if (!student.defeatedMonsterIds.includes(m.id)) {
-          const dLat = Math.abs(m.position[0] - clampedLat);
-          const dLng = Math.abs(m.position[1] - clampedLng);
-          if (dLat < 0.0007 && dLng < 0.0007) {
-            // Walked directly into monster! Start battle
-            soundEffects.playSelect();
-            onSelectMonster(m);
-          }
-        }
-      });
-
-      // Pan map smoothly to stay centered on player
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.panTo(newPos, { animate: true, duration: 0.15 });
-      }
-
-      return newPos;
     });
 
-    setIsWalking(true);
-    if (walkingTimerRef.current) clearTimeout(walkingTimerRef.current);
-    walkingTimerRef.current = setTimeout(() => setIsWalking(false), 200);
-  }, [activeMonster, currentCity, student.defeatedMonsterIds, onSelectMonster]);
+    cityPlayers.forEach(player => {
+      const isMale = player.avatar === 'boy';
+      const playerHtml = `
+        <div class="relative flex flex-col items-center cursor-pointer group transform transition-transform hover:scale-115">
+          ${player.currentEmote ? `
+            <div class="absolute -top-12 z-30 px-2 py-1 rounded-2xl bg-white border-2 border-slate-900 text-slate-900 text-xs font-black shadow-2xl flex items-center gap-1 animate-bounce whitespace-nowrap">
+              <span class="text-sm">${player.currentEmote.emoji}</span>
+              ${player.currentEmote.text ? `<span class="text-[10px] font-bold text-slate-700">${player.currentEmote.text}</span>` : ''}
+              <div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-white rotate-45 border-r-2 border-b-2 border-slate-900"></div>
+            </div>
+          ` : ''}
 
-  // Global Keyboard Listener for WASD and Arrow Keys
+          <div class="relative w-8 h-8 rounded-full border-2 border-white shadow-xl flex items-center justify-center text-sm" style="background-color: ${player.clothingColor || '#38bdf8'}">
+            <span>${isMale ? '👦' : '👧'}</span>
+            <div class="absolute -bottom-1 -right-1 px-1 rounded-full bg-amber-400 text-slate-950 font-black text-[7px] border border-white shadow">
+              ${player.level}
+            </div>
+          </div>
+
+          <div class="px-1.5 py-0.2 mt-0.5 rounded-full bg-slate-900/95 border border-sky-400/60 text-[8px] font-bold text-sky-200 whitespace-nowrap shadow flex items-center gap-1">
+            <span>${player.name}</span>
+          </div>
+        </div>
+      `;
+
+      const remoteIcon = L.divIcon({
+        html: playerHtml,
+        className: 'custom-remote-player-marker',
+        iconSize: [34, 42],
+        iconAnchor: [17, 36],
+      });
+
+      const existingMarker = remotePlayerMarkersRef.current[player.id];
+      if (existingMarker) {
+        existingMarker.setLatLng([player.pos.lat, player.pos.lng]);
+        existingMarker.setIcon(remoteIcon);
+      } else {
+        const marker = L.marker([player.pos.lat, player.pos.lng], {
+          icon: remoteIcon,
+          zIndexOffset: 800,
+        }).addTo(mapInstanceRef.current!);
+
+        marker.on('click', (e) => {
+          L.DomEvent.stopPropagation(e);
+          soundEffects.playSelect();
+          onSelectRemotePlayer?.(player);
+        });
+
+        remotePlayerMarkersRef.current[player.id] = marker;
+      }
+    });
+  }, [multiplayerPlayers, cityIndex, onSelectRemotePlayer]);
+
+  // Sync local player position with multiplayer server
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger if user is typing in an input
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+    onSendMovement?.(
+      { lat: playerPosition[0], lng: playerPosition[1] },
+      facingDirection === 'W' ? 'left' : facingDirection === 'E' ? 'right' : facingDirection === 'N' ? 'up' : 'down',
+      student.activeVehicle
+    );
+  }, [playerPosition, facingDirection, student.activeVehicle, onSendMovement]);
+
+  // 60FPS Silky-Smooth Continuous Walking & Autonomous Mob Roaming Physics Engine
+  useEffect(() => {
+    let animId: number;
+    let lastTime = performance.now();
+    let lastSyncTime = 0;
+    let lastMobWanderTime = 0;
+
+    const loop = (now: number) => {
+      animId = requestAnimationFrame(loop);
+
+      const dt = Math.min(0.04, (now - lastTime) / 1000);
+      lastTime = now;
+
+      // Stop walking if in battle
+      if (activeMonster) {
+        if (isWalking) setIsWalking(false);
+        velRef.current = { x: 0, y: 0 };
         return;
       }
 
+      const keys = keysDownRef.current;
+      const joy = joystickVectorRef.current;
+
+      let targetKx = 0;
+      let targetKy = 0;
+      if (keys.has('d') || keys.has('arrowright')) targetKx += 1;
+      if (keys.has('a') || keys.has('arrowleft')) targetKx -= 1;
+      if (keys.has('w') || keys.has('arrowup')) targetKy += 1;
+      if (keys.has('s') || keys.has('arrowdown')) targetKy -= 1;
+
+      let targetVx = targetKx + (joy ? joy.x : 0);
+      let targetVy = targetKy + (joy ? -joy.y : 0);
+      const targetMag = Math.hypot(targetVx, targetVy);
+
+      if (targetMag > 1) {
+        targetVx /= targetMag;
+        targetVy /= targetMag;
+      }
+
+      // Smooth Physics Acceleration & Organic Deceleration Friction
+      const accelRate = targetMag > 0.05 ? 14.0 : 9.0;
+      velRef.current.x += (targetVx - velRef.current.x) * Math.min(1, accelRate * dt);
+      velRef.current.y += (targetVy - velRef.current.y) * Math.min(1, accelRate * dt);
+
+      const curSpeed = Math.hypot(velRef.current.x, velRef.current.y);
+
+      if (curSpeed > 0.03) {
+        // Base street walking speed scaled by vehicle multiplier
+        const maxSpeed = 0.00065 * (activeVehicleOption.speedMultiplier || 1.0);
+        const dLat = velRef.current.y * maxSpeed * dt;
+        const dLng = velRef.current.x * maxSpeed * dt;
+
+        const bounds = computeCityBounds(currentCity);
+        const [curLat, curLng] = playerPosRef.current;
+
+        const nextLat = Math.max(bounds.minLat, Math.min(bounds.maxLat, curLat + dLat));
+        const nextLng = Math.max(bounds.minLng, Math.min(bounds.maxLng, curLng + dLng));
+        const nextPos: [number, number] = [nextLat, nextLng];
+        playerPosRef.current = nextPos;
+
+        if (playerMarkerRef.current) {
+          playerMarkerRef.current.setLatLng(nextPos);
+        }
+
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.panTo(nextPos, { animate: false });
+        }
+
+        // Update facing direction
+        let dir: 'N' | 'S' | 'E' | 'W' = facingDirection;
+        if (Math.abs(velRef.current.y) >= Math.abs(velRef.current.x)) {
+          dir = velRef.current.y >= 0 ? 'N' : 'S';
+        } else {
+          dir = velRef.current.x >= 0 ? 'E' : 'W';
+        }
+        setFacingDirection(dir);
+
+        if (!isWalking) {
+          setIsWalking(true);
+        }
+
+        if (now - lastSyncTime > 60) {
+          lastSyncTime = now;
+          setPlayerPosition(nextPos);
+        }
+      } else {
+        if (isWalking) {
+          setIsWalking(false);
+          setPlayerPosition(playerPosRef.current);
+        }
+      }
+
+      // AUTONOMOUS MOB ROAMING SIMULATION (Mobs move on their own along streets!)
+      if (now - lastMobWanderTime > 80) {
+        lastMobWanderTime = now;
+        const [pLat, pLng] = playerPosRef.current;
+
+        currentCity.monsters.forEach(m => {
+          if (student.defeatedMonsterIds.includes(m.id)) return;
+
+          let sim = mobSimRef.current.get(m.id);
+          if (!sim) {
+            sim = {
+              lat: m.position[0],
+              lng: m.position[1],
+              anchorLat: m.position[0],
+              anchorLng: m.position[1],
+              targetLat: m.position[0],
+              targetLng: m.position[1],
+              isFacingLeft: false,
+              nextWanderTime: now + 1000 + Math.random() * 3000
+            };
+            mobSimRef.current.set(m.id, sim);
+          }
+
+          // Pick new waypoint every few seconds
+          if (now > sim.nextWanderTime) {
+            const wanderRadius = 0.0022; // ~220 meters
+            const randAngle = Math.random() * Math.PI * 2;
+            const randDist = (0.2 + Math.random() * 0.8) * wanderRadius;
+            sim.targetLat = sim.anchorLat + Math.sin(randAngle) * randDist;
+            sim.targetLng = sim.anchorLng + Math.cos(randAngle) * randDist;
+            sim.nextWanderTime = now + 2500 + Math.random() * 4500;
+          }
+
+          // Smoothly interpolate towards target
+          const dLat = sim.targetLat - sim.lat;
+          const dLng = sim.targetLng - sim.lng;
+          const dist = Math.hypot(dLat, dLng);
+
+          if (dist > 0.00005) {
+            const step = Math.min(dist, 0.000015);
+            sim.lat += (dLat / dist) * step;
+            sim.lng += (dLng / dist) * step;
+            sim.isFacingLeft = dLng < 0;
+
+            const marker = monsterMarkersRef.current[m.id];
+            if (marker) {
+              marker.setLatLng([sim.lat, sim.lng]);
+            }
+          }
+
+          // Check encounter collision with player
+          const distToPlayerLat = Math.abs(sim.lat - pLat);
+          const distToPlayerLng = Math.abs(sim.lng - pLng);
+          if (distToPlayerLat < 0.00060 && distToPlayerLng < 0.00060) {
+            soundEffects.playSelect();
+            onSelectMonster(m);
+            keysDownRef.current.clear();
+            velRef.current = { x: 0, y: 0 };
+            joystickVectorRef.current = null;
+          }
+        });
+      }
+    };
+
+    animId = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(animId);
+  }, [activeMonster, currentCity, activeVehicleOption, student.defeatedMonsterIds, onSelectMonster, isWalking, facingDirection]);
+
+  // Keyboard Event Listeners
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
       const key = e.key.toLowerCase();
       if (key === 'p') {
         e.preventDefault();
@@ -514,41 +939,45 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
         onOpenPhone();
         return;
       }
-      if (key === 'w' || key === 'arrowup') {
+      if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(key)) {
         e.preventDefault();
-        moveTrainer('W');
-      } else if (key === 's' || key === 'arrowdown') {
-        e.preventDefault();
-        moveTrainer('S');
-      } else if (key === 'a' || key === 'arrowleft') {
-        e.preventDefault();
-        moveTrainer('A');
-      } else if (key === 'd' || key === 'arrowright') {
-        e.preventDefault();
-        moveTrainer('D');
+        keysDownRef.current.add(key);
       }
     };
 
+    const handleKeyUp = (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase();
+      keysDownRef.current.delete(key);
+    };
+
+    const handleBlur = () => {
+      keysDownRef.current.clear();
+      velRef.current = { x: 0, y: 0 };
+      joystickVectorRef.current = null;
+    };
+
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [moveTrainer]);
+    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleBlur);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleBlur);
+    };
+  }, [onOpenPhone]);
 
   // Controls helpers
   const handleZoomIn = () => {
-    if (mapInstanceRef.current) {
-      if (mapInstanceRef.current.getZoom() < 18) {
-        mapInstanceRef.current.zoomIn();
-        soundEffects.playSelect();
-      }
+    if (mapInstanceRef.current && mapInstanceRef.current.getZoom() < 18) {
+      mapInstanceRef.current.zoomIn();
+      soundEffects.playSelect();
     }
   };
 
   const handleZoomOut = () => {
-    if (mapInstanceRef.current) {
-      if (mapInstanceRef.current.getZoom() > 14) {
-        mapInstanceRef.current.zoomOut();
-        soundEffects.playSelect();
-      }
+    if (mapInstanceRef.current && mapInstanceRef.current.getZoom() > 11) {
+      mapInstanceRef.current.zoomOut();
+      soundEffects.playSelect();
     }
   };
 
@@ -565,7 +994,7 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
       {/* 1. TOP STATUS & NAVIGATION BAR */}
       <header className="absolute top-3 left-3 right-3 sm:left-4 sm:right-4 z-[400] flex flex-wrap items-center justify-between gap-2 pointer-events-none">
         
-        {/* Left: City Badge + Lesson Quick Guide Trigger */}
+        {/* Left: City Badge + Weather + Missions */}
         <div className="pointer-events-auto flex items-center gap-2">
           <div className="flex items-center gap-2.5 bg-slate-900/95 backdrop-blur-md border border-slate-700/80 rounded-2xl p-2 sm:px-3 sm:py-2 shadow-2xl">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center text-white shadow font-black text-xs">
@@ -586,12 +1015,28 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
             </div>
           </div>
 
-          {/* Dynamic Random Weather System Widget (Shifts randomly every 15 min, no manual override) */}
+          {/* Dynamic Weather Widget */}
           <CityWeatherWidget
             currentWeather={effectiveWeather}
             tempUnit={tempUnit}
             onOpenPhoneWeather={onOpenPhone}
           />
+
+          {/* Daily Missions System Trigger */}
+          {onOpenDailyMissions && (
+            <button
+              id="open-daily-missions-btn"
+              onClick={() => {
+                soundEffects.playSelect();
+                onOpenDailyMissions();
+              }}
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-2xl bg-gradient-to-r from-amber-400 via-amber-500 to-orange-500 hover:from-amber-300 hover:to-orange-400 border border-amber-300 text-slate-950 text-xs font-black shadow-lg shadow-amber-500/20 transition active:scale-95 cursor-pointer shrink-0"
+              title="Daily Missions (3 Daily Educational Tasks for XP & Coins)"
+            >
+              <Target className="w-4 h-4 shrink-0" />
+              <span className="hidden sm:inline">Daily Missions</span>
+            </button>
+          )}
 
           {/* Daily Reward Bonus Button */}
           {onOpenDailyReward && (
@@ -616,6 +1061,22 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
             </button>
           )}
 
+          {/* Physical Airport Terminal Shortcut */}
+          {onOpenAirport && (
+            <button
+              id="open-airport-terminal-btn"
+              onClick={() => {
+                soundEffects.playSelect();
+                onOpenAirport();
+              }}
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-2xl bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-500 hover:to-sky-500 border border-sky-400 text-white text-xs font-black shadow-lg shadow-sky-500/20 transition active:scale-95 cursor-pointer shrink-0"
+              title={`Enter ${currentCity.airport?.name || currentCity.name + ' Airport'} Terminal`}
+            >
+              <Plane className="w-4 h-4 text-sky-200 shrink-0" />
+              <span className="hidden sm:inline">Airport</span>
+            </button>
+          )}
+
           {/* City Express Lines Button */}
           <button
             id="open-city-express-lines-btn"
@@ -633,7 +1094,7 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
 
         {/* Center/Right: Action Buttons & Progress Pill */}
         <div className="pointer-events-auto flex items-center gap-2">
-          {/* Smartphone App Button (Call Taxi, Buy Tickets, Change Models) */}
+          {/* Smartphone App Button */}
           <button
             id="open-smartphone-btn"
             onClick={() => {
@@ -678,7 +1139,7 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
             <span className="hidden lg:inline">Guide</span>
           </button>
 
-          {/* Settings Button (Opens Settings modal to toggle Mini-Map, Sound, Save System & Reset) */}
+          {/* Settings Button */}
           <button
             id="toggle-settings-btn"
             onClick={() => {
@@ -694,18 +1155,18 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
         </div>
       </header>
 
-      {/* 2. LEAFLET MAP CANVAS CONTAINER (Pristine Leaflet div, no CSS filters so map never disappears) */}
+      {/* 2. LEAFLET MAP CANVAS CONTAINER */}
       <div 
         ref={mapContainerRef} 
         className="w-full h-full z-0 cursor-default"
       />
 
-      {/* 2b. DYNAMIC WEATHER AMBIANCE & PARTICLE OVERLAY (Safe rendering, never causes map to vanish) */}
+      {/* 2b. DYNAMIC WEATHER AMBIANCE & PARTICLE OVERLAY */}
       <CityWeatherOverlay
         weather={effectiveWeather}
       />
 
-      {/* 3. REAL-TIME MINI-MAP OVERLAY (RELATIVE TO CITY BOUNDARIES) */}
+      {/* 3. REAL-TIME MINI-MAP OVERLAY */}
       {showMiniMap && (
         <aside 
           aria-label="City Mini-Map Radar" 
@@ -717,6 +1178,7 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
             facingDirection={facingDirection}
             defeatedMonsterIds={student.defeatedMonsterIds}
             activeVehicleIcon={activeVehicleOption.icon}
+            multiplayerPlayers={multiplayerPlayers.filter(p => p.cityIndex === cityIndex)}
             onPanToLocation={(coords) => {
               if (mapInstanceRef.current) {
                 mapInstanceRef.current.panTo(coords, { animate: true, duration: 0.3 });
@@ -727,15 +1189,18 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
         </aside>
       )}
 
-      {/* 4. TOUCH CONTROLS FOR MOBILE (Hidden on desktop) */}
+      {/* 4. TOUCH CONTROLS FOR MOBILE */}
       <div className="absolute bottom-6 left-4 z-[400] pointer-events-auto block md:hidden">
         <VirtualJoystick 
-          onMove={moveTrainer} 
+          onMove={() => {}} 
+          onVectorChange={(vec) => {
+            joystickVectorRef.current = vec;
+          }}
           speedMultiplier={activeVehicleOption.speedMultiplier}
         />
       </div>
 
-      {/* 5. GOOGLE MAPS STYLE FLOATING CONTROLS (RIGHT-HAND SIDE) */}
+      {/* 5. FLOATING MAP CONTROLS */}
       <aside aria-label="Map Controls" className="absolute bottom-6 right-4 z-[400] flex flex-col gap-2 pointer-events-auto">
         
         {/* Street / Satellite Toggle */}
@@ -759,6 +1224,22 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
           {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4 text-amber-400" />}
         </button>
 
+        {/* Fit Full Metropolis Overview Button */}
+        <button
+          id="map-fit-metropolis-btn"
+          onClick={() => {
+            if (mapInstanceRef.current) {
+              const bounds = computeCityBounds(currentCity);
+              mapInstanceRef.current.fitBounds(bounds.latLngBounds, { padding: [40, 40], duration: 1.2 });
+              soundEffects.playSelect();
+            }
+          }}
+          className="w-10 h-10 rounded-xl bg-slate-900/95 border border-slate-700/80 hover:border-amber-400 hover:bg-slate-800 text-amber-400 shadow-xl flex items-center justify-center transition cursor-pointer"
+          title="Fit Full Metropolis Overview (See all scattered sectors & mobs)"
+        >
+          <Maximize2 className="w-5 h-5" />
+        </button>
+
         {/* Recenter on Trainer GPS Button */}
         <button
           onClick={handleRecenter}
@@ -768,7 +1249,7 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
           <Crosshair className="w-5 h-5" />
         </button>
 
-        {/* Quick Settings Button (Mini-Map HUD, Audio, Display) */}
+        {/* Quick Settings Button */}
         <button
           id="map-floating-settings-btn"
           onClick={() => {
@@ -776,12 +1257,12 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
             setShowSettingsModal(true);
           }}
           className="w-10 h-10 rounded-xl bg-slate-900/95 border border-slate-700/80 hover:border-sky-400 hover:bg-slate-800 text-slate-200 hover:text-sky-300 shadow-xl flex items-center justify-center transition cursor-pointer"
-          title="Game Settings (Mini-Map & Audio)"
+          title="Game Settings"
         >
           <SettingsIcon className="w-4 h-4" />
         </button>
 
-        {/* Zoom In & Out Stack (Zoom range constrained to 14-18) */}
+        {/* Zoom In & Out Stack */}
         <div className="flex flex-col rounded-xl overflow-hidden border border-slate-700/80 bg-slate-900/95 shadow-xl">
           <button
             onClick={handleZoomIn}
@@ -789,17 +1270,17 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
             className={`w-10 h-10 text-slate-200 flex items-center justify-center border-b border-slate-800 transition cursor-pointer ${
               currentZoom >= 18 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-slate-800'
             }`}
-            title={currentZoom >= 18 ? "Maximum Zoom In Level" : "Zoom In"}
+            title="Zoom In"
           >
             <Plus className="w-5 h-5" />
           </button>
           <button
             onClick={handleZoomOut}
-            disabled={currentZoom <= 14}
+            disabled={currentZoom <= 11}
             className={`w-10 h-10 text-slate-200 flex items-center justify-center transition cursor-pointer ${
-              currentZoom <= 14 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-slate-800'
+              currentZoom <= 11 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-slate-800'
             }`}
-            title={currentZoom <= 14 ? "City District Boundary Reached (Cannot zoom out further)" : "Zoom Out"}
+            title="Zoom Out"
           >
             <Minus className="w-5 h-5" />
           </button>
@@ -811,16 +1292,27 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
         <div className="pointer-events-auto max-w-sm p-3 rounded-xl bg-slate-900/90 backdrop-blur-md border border-slate-700 text-slate-200 text-xs shadow-xl flex items-start gap-2.5">
           <HelpCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
           <div className="leading-relaxed">
-            <span className="font-semibold text-white">Controls:</span> Walk using <strong>W, A, S, D</strong> or <strong>Arrow keys</strong>. Click monsters or stations to interact!
+            <span className="font-semibold text-white">Controls:</span> Hold <strong>W, A, S, D</strong> to walk with smooth momentum. Mobs roam the streets on their own and hide inside monuments! Visit the <strong>Airport</strong> to fly!
           </div>
         </div>
-        <div className="pointer-events-auto flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-900/80 backdrop-blur-sm border border-slate-800 text-[10px] font-mono text-slate-400 shadow">
+        <button
+          onClick={() => {
+            soundEffects.playSelect();
+            if (onOpenUpdateLogs) {
+              onOpenUpdateLogs();
+            } else {
+              setShowUpdateLogsModal(true);
+            }
+          }}
+          className="pointer-events-auto flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-900/90 hover:bg-slate-800 backdrop-blur-sm border border-slate-800 hover:border-sky-400 text-[10px] font-mono text-slate-400 hover:text-sky-300 shadow transition cursor-pointer group"
+          title="Click to view WordQuest Update Logs & Release Notes"
+        >
           <span>WordQuest</span>
-          <span className="text-sky-400 font-bold">v1.9.5</span>
-        </div>
+          <span className="text-sky-400 font-bold group-hover:underline">v{APP_VERSION}</span>
+        </button>
       </footer>
 
-      {/* 7. SETTINGS MODAL (Toggles Real-Time Mini-Map, Sound, Temperature Unit, Save System & Reset) */}
+      {/* 7. SETTINGS MODAL */}
       {showSettingsModal && (
         <SettingsModal
           showMiniMap={showMiniMap}
@@ -831,8 +1323,18 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
           onToggleTempUnit={onToggleTempUnit}
           onOpenSaveSystem={onOpenSaveSystem}
           onResetClick={onResetClick}
+          onOpenUpdateLogs={() => {
+            setShowSettingsModal(false);
+            if (onOpenUpdateLogs) onOpenUpdateLogs();
+            else setShowUpdateLogsModal(true);
+          }}
           onClose={() => setShowSettingsModal(false)}
         />
+      )}
+
+      {/* 8. UPDATE LOGS MODAL */}
+      {showUpdateLogsModal && (
+        <UpdateLogsModal onClose={() => setShowUpdateLogsModal(false)} />
       )}
     </div>
   );

@@ -13,7 +13,10 @@ import {
   Gauge, 
   Wind,
   ShieldAlert,
-  ChevronRight
+  ChevronRight,
+  Eye,
+  Camera,
+  Maximize2
 } from 'lucide-react';
 
 interface FlightSequenceProps {
@@ -26,6 +29,8 @@ interface FlightSequenceProps {
   onClose: () => void;
 }
 
+export type CameraViewMode = 'chase' | 'window' | 'cockpit';
+
 export const FlightSequence: React.FC<FlightSequenceProps> = ({
   currentCity,
   secondCity,
@@ -37,12 +42,15 @@ export const FlightSequence: React.FC<FlightSequenceProps> = ({
 }) => {
   // Flight Stages: boarding -> takeoff_3d -> cruising_3d -> landing_3d -> arrived
   const [stage, setStage] = useState<'boarding' | 'takeoff_3d' | 'cruising_3d' | 'landing_3d' | 'arrived'>('boarding');
+  const [cameraView, setCameraView] = useState<CameraViewMode>('chase');
   const [altitude, setAltitude] = useState(0); // in meters
   const [airSpeed, setAirSpeed] = useState(0); // in km/h
   const [distanceKm, setDistanceKm] = useState(8900);
   const [flightTimeMinutes, setFlightTimeMinutes] = useState(0);
-  const [totalCostMinutes, setTotalCostMinutes] = useState(680); // ~11h 20m
+  const [totalCostMinutes, setTotalCostMinutes] = useState(680);
   const [progressPercent, setProgressPercent] = useState(0);
+  const [bankAngle, setBankAngle] = useState(0); // Aircraft banking in degrees
+  const [pitchAngle, setPitchAngle] = useState(0);
 
   const isFinalCity = cityIndex + 1 >= totalCities;
 
@@ -63,7 +71,6 @@ export const FlightSequence: React.FC<FlightSequenceProps> = ({
     const dist = Math.max(1200, Math.round(6371 * c));
     setDistanceKm(dist);
 
-    // Approximate flight time: ~800 km/h + 40 mins takeoff/landing
     const minutes = Math.round((dist / 850) * 60 + 45);
     setTotalCostMinutes(minutes);
   }, [currentCity, secondCity]);
@@ -72,77 +79,85 @@ export const FlightSequence: React.FC<FlightSequenceProps> = ({
     setStage('takeoff_3d');
     soundEffects.playFlightTakeoff();
 
-    // Stage 1: Takeoff (0 - 2.5s)
-    let startTime = Date.now();
-    const takeoffDuration = 2500;
+    // Stage 1: Takeoff (0 - 2.8s)
+    const startTime = Date.now();
+    const takeoffDuration = 2800;
 
     const takeoffTimer = setInterval(() => {
       const elapsed = Date.now() - startTime;
       const prog = Math.min(1, elapsed / takeoffDuration);
-      setAltitude(Math.round(prog * 3500));
-      setAirSpeed(Math.round(prog * 580));
+      setAltitude(Math.round(prog * 3800));
+      setAirSpeed(Math.round(prog * 620));
       setProgressPercent(Math.round(prog * 25));
       setFlightTimeMinutes(Math.round(prog * (totalCostMinutes * 0.25)));
+      setPitchAngle(prog * 18);
+      setBankAngle(Math.sin(prog * Math.PI) * 4);
 
       if (prog >= 1) {
         clearInterval(takeoffTimer);
-        // Transition to 3D Cruising (2.5s - 6.5s)
         setStage('cruising_3d');
         startCruisingPhase();
       }
-    }, 40);
+    }, 35);
   };
 
   const startCruisingPhase = () => {
-    let startTime = Date.now();
-    const cruisingDuration = 3500;
+    const startTime = Date.now();
+    const cruisingDuration = 3800;
 
     const cruisingTimer = setInterval(() => {
       const elapsed = Date.now() - startTime;
       const prog = Math.min(1, elapsed / cruisingDuration);
-      setAltitude(Math.round(3500 + prog * 7500)); // up to 11,000m
-      setAirSpeed(880 + Math.round(Math.sin(prog * 10) * 20));
-      setProgressPercent(Math.round(25 + prog * 50));
+      
+      const currentAlt = 3800 + Math.round(prog * 7200); // 3,800m up to 11,000m cruise altitude
+      setAltitude(currentAlt);
+      setAirSpeed(850 + Math.round(Math.sin(elapsed / 300) * 15));
+      setProgressPercent(25 + Math.round(prog * 50));
       setFlightTimeMinutes(Math.round((0.25 + prog * 0.5) * totalCostMinutes));
-      setDistanceKm(prev => Math.max(100, Math.round(prev * (1 - prog * 0.6))));
+      setPitchAngle(2 + Math.sin(elapsed / 500) * 2);
+      setBankAngle(Math.sin(elapsed / 400) * 6);
 
       if (prog >= 1) {
         clearInterval(cruisingTimer);
-        // Transition to 3D Landing sequence
         setStage('landing_3d');
         startLandingPhase();
       }
-    }, 40);
+    }, 35);
   };
 
   const startLandingPhase = () => {
-    let startTime = Date.now();
+    const startTime = Date.now();
     const landingDuration = 3200;
 
     const landingTimer = setInterval(() => {
       const elapsed = Date.now() - startTime;
       const prog = Math.min(1, elapsed / landingDuration);
-      setAltitude(Math.max(0, Math.round(11000 * (1 - prog))));
-      setAirSpeed(Math.max(0, Math.round(880 * (1 - prog))));
-      setProgressPercent(Math.round(75 + prog * 25));
+      
+      const currentAlt = Math.max(0, Math.round((1 - prog) * 11000));
+      const currentSpeed = Math.round(850 - prog * 600);
+      setAltitude(currentAlt);
+      setAirSpeed(Math.max(160, currentSpeed));
+      setProgressPercent(75 + Math.round(prog * 25));
       setFlightTimeMinutes(Math.round((0.75 + prog * 0.25) * totalCostMinutes));
-      setDistanceKm(Math.max(0, Math.round(100 * (1 - prog))));
+      setPitchAngle(-8 * (1 - prog));
+      setBankAngle(-Math.sin(prog * Math.PI) * 5);
 
       if (prog >= 1) {
         clearInterval(landingTimer);
         setStage('arrived');
-        soundEffects.playVictoryFanfare();
+        soundEffects.playVictory();
+
         try {
           confetti({
-            particleCount: 100,
+            particleCount: 80,
             spread: 90,
-            origin: { y: 0.5 }
+            origin: { y: 0.6 }
           });
         } catch {
           // ignore
         }
       }
-    }, 40);
+    }, 35);
   };
 
   const hours = Math.floor(totalCostMinutes / 60);
@@ -152,7 +167,7 @@ export const FlightSequence: React.FC<FlightSequenceProps> = ({
 
   return (
     <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-slate-950/90 backdrop-blur-lg p-3 sm:p-4 overflow-y-auto">
-      <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-700/80 rounded-3xl shadow-2xl p-5 sm:p-7 text-white overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-3xl bg-slate-900 border border-slate-700/80 rounded-3xl shadow-2xl p-5 sm:p-7 text-white overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         
         {/* Sky Ambient Light */}
         <div className="absolute inset-0 bg-gradient-to-b from-sky-900/30 via-slate-900 to-slate-950 pointer-events-none" />
@@ -169,7 +184,7 @@ export const FlightSequence: React.FC<FlightSequenceProps> = ({
                 Boarding Flight to City #{cityIndex + 2}: {secondCity.name}! ✈️
               </h2>
               <p className="text-xs sm:text-sm text-slate-300 mt-1">
-                Prepare for international takeoff! This flight spans continents and costs flight time.
+                International Jet Service: {currentCity.airport?.name || `${currentCity.name} International Airport`} ➔ {secondCity.airport?.name || `${secondCity.name} International Airport`}
               </p>
             </div>
 
@@ -177,15 +192,15 @@ export const FlightSequence: React.FC<FlightSequenceProps> = ({
             <div className="relative bg-slate-800/90 border border-slate-700 rounded-2xl p-4 sm:p-5 shadow-2xl">
               <div className="flex items-center justify-between border-b border-slate-700 pb-3 mb-4">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-sky-500 flex items-center justify-center text-white font-bold text-lg">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-sky-400 flex items-center justify-center text-white font-bold text-xl shadow-md">
                     ✈️
                   </div>
                   <div>
                     <div className="text-xs font-black text-white uppercase tracking-wider">
                       WordQuest Airlines Global Route
                     </div>
-                    <div className="text-[10px] text-slate-400">
-                      Flight WQ-{cityIndex + 1}0 • Passenger: {student.name}
+                    <div className="text-[10px] text-slate-400 font-mono">
+                      Flight WQ-{cityIndex + 1}0 • Passenger: {student.name} • Aircraft: B787-9 Dreamliner
                     </div>
                   </div>
                 </div>
@@ -201,13 +216,16 @@ export const FlightSequence: React.FC<FlightSequenceProps> = ({
                   <div className="text-base sm:text-xl font-extrabold text-white mt-0.5">
                     {currentCity.name}
                   </div>
-                  <div className="text-xs text-slate-400">{currentCity.country}</div>
+                  <div className="text-xs text-sky-300 font-mono font-bold">
+                    {currentCity.airport?.code || currentCity.name.substring(0, 3).toUpperCase()}
+                  </div>
+                  <div className="text-[11px] text-slate-400">{currentCity.country}</div>
                 </div>
 
                 <div className="flex flex-col items-center">
-                  <Plane className="w-6 h-6 text-sky-400 transform rotate-90" />
-                  <div className="w-full border-t-2 border-dashed border-slate-600 my-1"></div>
-                  <span className="text-[10px] text-amber-300 font-bold">Non-Stop</span>
+                  <Plane className="w-7 h-7 text-sky-400 transform rotate-90" />
+                  <div className="w-full border-t-2 border-dashed border-sky-500/50 my-1"></div>
+                  <span className="text-[10px] text-amber-300 font-bold uppercase tracking-wider">Non-Stop Jet</span>
                 </div>
 
                 <div>
@@ -215,7 +233,10 @@ export const FlightSequence: React.FC<FlightSequenceProps> = ({
                   <div className="text-base sm:text-xl font-extrabold text-amber-400 mt-0.5">
                     {secondCity.name}
                   </div>
-                  <div className="text-xs text-slate-400">{secondCity.country}</div>
+                  <div className="text-xs text-amber-300 font-mono font-bold">
+                    {secondCity.airport?.code || secondCity.name.substring(0, 3).toUpperCase()}
+                  </div>
+                  <div className="text-[11px] text-slate-400">{secondCity.country}</div>
                 </div>
               </div>
 
@@ -223,10 +244,10 @@ export const FlightSequence: React.FC<FlightSequenceProps> = ({
               <div className="mt-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Clock className="w-4 h-4 text-amber-400" />
-                  <span className="text-xs font-bold text-amber-200">Scheduled Flight Time:</span>
+                  <span className="text-xs font-bold text-amber-200">Flight Journey Time:</span>
                 </div>
                 <span className="text-xs font-mono font-black text-amber-300">
-                  {hours}h {mins}m travel cost
+                  {hours}h {mins}m logged to passport ({distanceKm.toLocaleString()} km)
                 </span>
               </div>
 
@@ -245,7 +266,7 @@ export const FlightSequence: React.FC<FlightSequenceProps> = ({
                 </div>
                 <div>
                   <span className="text-slate-400 block text-[10px]">Transit Record</span>
-                  <strong className="text-emerald-400">
+                  <strong className="text-emerald-400 font-mono">
                     {Math.floor((student.travelMinutesSpent || 0) / 60)}h logged
                   </strong>
                 </div>
@@ -260,7 +281,7 @@ export const FlightSequence: React.FC<FlightSequenceProps> = ({
                 className="flex-1 py-3.5 px-6 rounded-2xl font-black text-slate-950 bg-gradient-to-r from-sky-400 via-blue-400 to-sky-500 hover:from-sky-300 hover:to-blue-400 shadow-xl shadow-sky-500/20 text-sm sm:text-base flex items-center justify-center gap-2 transition cursor-pointer"
               >
                 <Plane className="w-5 h-5" />
-                <span>Launch 3D Flight to {secondCity.name}!</span>
+                <span>Begin Cinematic Flight to {secondCity.name}!</span>
                 <ArrowRight className="w-5 h-5" />
               </button>
               <button
@@ -273,137 +294,328 @@ export const FlightSequence: React.FC<FlightSequenceProps> = ({
           </div>
         )}
 
-        {/* 2. 3D FLIGHT STAGES (Takeoff, Cruising, Landing) */}
+        {/* 2. ENHANCED CINEMATIC AIRPLANE FOOTAGE (Takeoff, Cruising, Landing) */}
         {(stage === 'takeoff_3d' || stage === 'cruising_3d' || stage === 'landing_3d') && (
           <div className="relative z-10 py-3 space-y-4">
             
-            {/* Stage Title & Cockpit HUD */}
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+            {/* Stage Title & Camera Switcher */}
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
                 <span className="text-xs font-black uppercase tracking-wider text-sky-400">
-                  {stage === 'takeoff_3d' && '3D Takeoff: Rolling & Climbing'}
-                  {stage === 'cruising_3d' && '3D Cruising: High Altitude Air Corridor'}
-                  {stage === 'landing_3d' && `3D Landing: Final Approach to ${secondCity.name}`}
+                  {stage === 'takeoff_3d' && '🛫 Runway Takeoff & Initial Climb'}
+                  {stage === 'cruising_3d' && `✈️ High Altitude Jet Stream (${currentCity.name} ➔ ${secondCity.name})`}
+                  {stage === 'landing_3d' && `🛬 Final Approach & Touchdown at ${secondCity.name}`}
                 </span>
               </div>
 
-              {/* Real-Time Travel Time Cost Accumulator */}
-              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-xs font-mono font-bold text-amber-300">
-                <Clock className="w-3.5 h-3.5 text-amber-400 animate-spin" />
-                <span>Flight Time Cost: +{currentElapsedHours}h {currentElapsedMins}m</span>
+              {/* Camera Switcher Buttons */}
+              <div className="flex items-center gap-1.5 bg-slate-850 p-1 rounded-xl border border-slate-700">
+                <button
+                  onClick={() => setCameraView('chase')}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition flex items-center gap-1 cursor-pointer ${
+                    cameraView === 'chase' ? 'bg-sky-500 text-white shadow' : 'text-slate-400 hover:text-white'
+                  }`}
+                  title="Chase Camera Angle"
+                >
+                  <Camera className="w-3 h-3" />
+                  <span>Chase</span>
+                </button>
+                <button
+                  onClick={() => setCameraView('window')}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition flex items-center gap-1 cursor-pointer ${
+                    cameraView === 'window' ? 'bg-sky-500 text-white shadow' : 'text-slate-400 hover:text-white'
+                  }`}
+                  title="Passenger Window Wing View"
+                >
+                  <Eye className="w-3 h-3" />
+                  <span>Wing Window</span>
+                </button>
+                <button
+                  onClick={() => setCameraView('cockpit')}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition flex items-center gap-1 cursor-pointer ${
+                    cameraView === 'cockpit' ? 'bg-sky-500 text-white shadow' : 'text-slate-400 hover:text-white'
+                  }`}
+                  title="Forward Cockpit Synthetic Vision"
+                >
+                  <Maximize2 className="w-3 h-3" />
+                  <span>Cockpit HUD</span>
+                </button>
               </div>
             </div>
 
-            {/* 3D Flight Viewport Canvas */}
+            {/* 3D AIRPLANE FOOTAGE VIEWPORT */}
             <div 
-              className="relative w-full h-64 sm:h-72 rounded-3xl bg-gradient-to-b from-sky-950 via-slate-900 to-indigo-950 border border-slate-700/80 overflow-hidden flex items-center justify-center shadow-inner"
-              style={{ perspective: '1000px' }}
+              className="relative w-full h-72 sm:h-84 rounded-3xl bg-slate-950 border border-slate-700/80 overflow-hidden flex items-center justify-center shadow-2xl select-none"
+              style={{ perspective: '1200px' }}
             >
-              {/* 3D Runway or Cloud Floor */}
-              {stage === 'takeoff_3d' && (
-                <div 
-                  className="absolute inset-x-0 bottom-0 h-40 bg-slate-900/90 border-t-2 border-emerald-500/50"
-                  style={{
-                    transform: 'rotateX(60deg)',
-                    transformOrigin: 'bottom center',
-                    backgroundImage: 'repeating-linear-gradient(90deg, #10b981 0, #10b981 4px, transparent 4px, transparent 60px)'
-                  }}
-                >
-                  <div className="w-full h-full flex items-center justify-center">
-                    <div className="w-2 h-full bg-amber-400 border-l border-r border-white animate-pulse" />
+              {/* CAMERA VIEW 1: CHASE CAM */}
+              {cameraView === 'chase' && (
+                <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
+                  
+                  {/* Atmospheric Sky Background */}
+                  <div 
+                    className="absolute inset-0 transition-colors duration-1000"
+                    style={{
+                      background: stage === 'cruising_3d' 
+                        ? 'linear-gradient(to bottom, #0369a1 0%, #0284c7 40%, #bae6fd 75%, #f0f9ff 100%)'
+                        : 'linear-gradient(to bottom, #0f172a 0%, #1e293b 50%, #334155 100%)'
+                    }}
+                  />
+
+                  {/* Parallax Ground Grid / Runway */}
+                  {stage === 'takeoff_3d' && (
+                    <div 
+                      className="absolute inset-x-0 bottom-0 h-44 bg-slate-900 border-t-2 border-emerald-400"
+                      style={{
+                        transform: 'rotateX(62deg)',
+                        transformOrigin: 'bottom center',
+                        backgroundImage: 'linear-gradient(90deg, #1e293b 0%, #0f172a 100%)'
+                      }}
+                    >
+                      {/* Runway centerline rushing towards bottom */}
+                      <div className="w-full h-full flex flex-col items-center justify-around">
+                        <div className="w-3 h-16 bg-white animate-pulse" />
+                        <div className="w-3 h-16 bg-white animate-pulse" />
+                        <div className="w-3 h-16 bg-white animate-pulse" />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Cruising Volumetric Cloud Layer */}
+                  {stage === 'cruising_3d' && (
+                    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                      {/* Top Cirrus Clouds */}
+                      <div className="absolute top-4 inset-x-0 flex justify-around opacity-30 text-5xl animate-pulse">
+                        <span className="transform -translate-x-10">☁️</span>
+                        <span className="transform translate-x-16">☁️</span>
+                        <span className="transform translate-x-4">☁️</span>
+                      </div>
+                      
+                      {/* Deep Cloud Blanket Below */}
+                      <div 
+                        className="absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-white/90 via-sky-100/70 to-transparent"
+                        style={{
+                          transform: `rotateX(55deg) rotateZ(${bankAngle * 0.4}deg)`,
+                          transformOrigin: 'bottom center'
+                        }}
+                      >
+                        <div className="w-full h-full flex items-center justify-around opacity-60 text-6xl">
+                          <span>☁️</span>
+                          <span>☁️</span>
+                          <span>☁️</span>
+                          <span>☁️</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Landing Runway Approach Lights */}
+                  {stage === 'landing_3d' && (
+                    <div 
+                      className="absolute inset-x-0 bottom-0 h-48 bg-slate-950 border-t-4 border-amber-400"
+                      style={{
+                        transform: 'rotateX(58deg)',
+                        transformOrigin: 'bottom center'
+                      }}
+                    >
+                      <div className="w-full h-full flex flex-col items-center justify-between py-2">
+                        <div className="flex gap-8 text-amber-400 animate-pulse text-xs font-mono">
+                          <span>🟡 PAPI: 2 RED 2 WHITE</span>
+                          <span>RUNWAY 24R • {secondCity.name.toUpperCase()}</span>
+                        </div>
+                        <div className="w-3 h-24 bg-white shadow-lg animate-pulse" />
+                        <div className="flex gap-4">
+                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* HIGH-PRECISION SVG JET AIRLINER MODEL (CHASE VIEW) */}
+                  <div 
+                    className="relative z-30 transition-transform duration-100 ease-out"
+                    style={{
+                      transform: `
+                        translateY(${
+                          stage === 'takeoff_3d' ? (1 - progressPercent / 25) * 50 - 25 :
+                          stage === 'landing_3d' ? (progressPercent - 75) * 1.8 : 0
+                        }px)
+                        rotateX(${-pitchAngle}deg)
+                        rotateZ(${bankAngle}deg)
+                        scale(${stage === 'landing_3d' ? 1.3 : 1.15})
+                      `
+                    }}
+                  >
+                    <svg width="220" height="150" viewBox="0 0 220 150" fill="none" xmlns="http://www.w3.org/2000/svg" className="filter drop-shadow-[0_25px_20px_rgba(0,0,0,0.6)]">
+                      {/* Left & Right Jet Contrails */}
+                      {stage === 'cruising_3d' && (
+                        <>
+                          <line x1="62" y1="100" x2="10" y2="150" stroke="#ffffff" strokeWidth="4" strokeLinecap="round" opacity="0.6" strokeDasharray="6 4" />
+                          <line x1="158" y1="100" x2="210" y2="150" stroke="#ffffff" strokeWidth="4" strokeLinecap="round" opacity="0.6" strokeDasharray="6 4" />
+                        </>
+                      )}
+
+                      {/* Main Swept Wings */}
+                      <path d="M110 55 L15 95 L25 105 L110 75 L195 105 L205 95 Z" fill="#e2e8f0" stroke="#94a3b8" strokeWidth="2" />
+                      {/* Wing Flaps & Slats Highlight */}
+                      <path d="M40 92 L95 76" stroke="#0284c7" strokeWidth="2.5" />
+                      <path d="M125 76 L180 92" stroke="#0284c7" strokeWidth="2.5" />
+
+                      {/* Wingtip Blended Winglets */}
+                      <path d="M15 95 L12 80 L18 85 Z" fill="#0284c7" />
+                      <path d="M205 95 L208 80 L202 85 Z" fill="#0284c7" />
+
+                      {/* Wingtip Navigation Strobes */}
+                      <circle cx="13" cy="82" r="3" fill="#ef4444" className="animate-ping" />
+                      <circle cx="207" cy="82" r="3" fill="#10b981" className="animate-ping" />
+
+                      {/* Twin Turbofan Engines Under Wings */}
+                      {/* Left Engine */}
+                      <rect x="52" y="80" width="16" height="30" rx="6" fill="#475569" stroke="#334155" strokeWidth="2" />
+                      <ellipse cx="60" cy="110" rx="7" ry="3" fill="#0284c7" className="animate-pulse" />
+                      {/* Left Jet Exhaust Core */}
+                      <ellipse cx="60" cy="112" rx="4" ry="2" fill="#38bdf8" />
+
+                      {/* Right Engine */}
+                      <rect x="152" y="80" width="16" height="30" rx="6" fill="#475569" stroke="#334155" strokeWidth="2" />
+                      <ellipse cx="160" cy="110" rx="7" ry="3" fill="#0284c7" className="animate-pulse" />
+                      {/* Right Jet Exhaust Core */}
+                      <ellipse cx="160" cy="112" rx="4" ry="2" fill="#38bdf8" />
+
+                      {/* Horizontal Stabilizers / Tailplanes */}
+                      <path d="M110 115 L70 135 L75 140 L110 125 L145 140 L150 135 Z" fill="#cbd5e1" stroke="#94a3b8" strokeWidth="1.5" />
+
+                      {/* Vertical Tail Fin */}
+                      <path d="M106 125 L106 70 L114 70 L114 125 Z" fill="#0284c7" />
+                      <path d="M107 70 L110 50 L113 70 Z" fill="#0369a1" />
+
+                      {/* Fuselage / Main Aircraft Body */}
+                      <path d="M102 125 L102 30 C102 15, 118 15, 118 30 L118 125 C118 135, 102 135, 102 125 Z" fill="#f8fafc" stroke="#64748b" strokeWidth="2" />
+
+                      {/* Cockpit Windshield Visor (Forward nose) */}
+                      <path d="M104 25 C107 20, 113 20, 116 25 L115 30 L105 30 Z" fill="#0f172a" />
+
+                      {/* Red Beacon Strobe on Fuselage Top */}
+                      <circle cx="110" cy="65" r="2.5" fill="#ef4444" className="animate-ping" />
+                    </svg>
+
+                    {/* Flight status label pill */}
+                    <div className="text-center mt-2">
+                      <span className="px-3 py-0.5 rounded-full bg-slate-900/90 border border-slate-700 text-[10px] font-mono font-bold text-sky-300 shadow">
+                        WQ-{cityIndex + 1}0 • B787 JET • SPEED {airSpeed} KM/H
+                      </span>
+                    </div>
                   </div>
                 </div>
               )}
 
-              {/* High Cloud Streamers during Cruising */}
-              {stage === 'cruising_3d' && (
-                <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                  <div className="absolute top-1/4 left-0 right-0 flex justify-around opacity-40 text-4xl animate-pulse">
-                    <span className="transform translate-z-10">☁️</span>
-                    <span className="transform -translate-z-20">☁️</span>
-                    <span className="transform translate-z-30">☁️</span>
+              {/* CAMERA VIEW 2: PASSENGER WINDOW WING VIEW */}
+              {cameraView === 'window' && (
+                <div className="absolute inset-0 flex items-center justify-center overflow-hidden bg-slate-950">
+                  {/* Sky & Clouds through Window */}
+                  <div className="absolute inset-0 bg-gradient-to-b from-sky-400 via-sky-200 to-amber-100 flex items-center justify-center">
+                    {/* Clouds Drifting Fast */}
+                    <div className="absolute inset-0 overflow-hidden">
+                      <div className="absolute top-1/3 left-0 text-7xl opacity-80 animate-pulse transform -translate-x-10">
+                        ☁️
+                      </div>
+                      <div className="absolute bottom-1/4 right-8 text-8xl opacity-90 transform translate-y-6">
+                        ☁️
+                      </div>
+                    </div>
+
+                    {/* Aircraft Wing Extending into Frame */}
+                    <div 
+                      className="absolute right-0 bottom-6 w-3/4 h-24 bg-gradient-to-l from-slate-200 via-slate-300 to-slate-400 border-t-4 border-slate-500 shadow-2xl"
+                      style={{
+                        transform: `rotate(-14deg) translateY(${Math.sin(Date.now() / 400) * 4}px)`,
+                        transformOrigin: 'right center'
+                      }}
+                    >
+                      {/* Winglet Red Beacon */}
+                      <div className="absolute left-2 top-0 w-3 h-8 bg-sky-600 rounded-t border border-white flex items-center justify-center">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                      </div>
+
+                      {/* Engine Nacelle Pylon & Inlet */}
+                      <div className="absolute left-1/3 bottom-0 w-24 h-16 rounded-full bg-slate-700 border-2 border-slate-500 flex items-center justify-center shadow-inner">
+                        <span className="text-2xl animate-spin" style={{ animationDuration: '0.1s' }}>⚙️</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="absolute bottom-1/4 left-0 right-0 flex justify-around opacity-30 text-5xl">
-                    <span>☁️</span>
-                    <span>☁️</span>
+
+                  {/* Airplane Cabin Window Bezel Frame */}
+                  <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                    <div className="w-56 sm:w-64 h-72 sm:h-80 rounded-[50px] border-[24px] border-slate-900 shadow-[inset_0_0_30px_rgba(0,0,0,0.8)] relative">
+                      {/* Plastic Window Shade Lip */}
+                      <div className="absolute -top-3 left-1/4 right-1/4 h-3 bg-slate-750 rounded-b-md" />
+                      {/* Window Reflection Sheen */}
+                      <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent rounded-[32px]" />
+                    </div>
+                  </div>
+
+                  {/* Seat View Badge */}
+                  <div className="absolute bottom-3 left-4 bg-slate-900/90 border border-slate-700 px-3 py-1 rounded-xl text-[10px] font-mono text-slate-300">
+                    SEAT 14A • WINDOW VIEW OVER WING
                   </div>
                 </div>
               )}
 
-              {/* Destination City Skyline & Runway during 3D Landing */}
-              {stage === 'landing_3d' && (
-                <div 
-                  className="absolute inset-x-0 bottom-0 h-48 bg-slate-950 border-t-4 border-amber-400"
-                  style={{
-                    transform: 'rotateX(55deg)',
-                    transformOrigin: 'bottom center'
-                  }}
-                >
-                  {/* Runway center line rushing towards viewer */}
-                  <div className="w-full h-full flex flex-col items-center justify-between py-2">
-                    <div className="text-3xl">🛬</div>
-                    <div className="w-3 h-20 bg-white shadow-lg animate-pulse" />
-                    <span className="text-[11px] font-mono font-bold text-amber-300">
-                      RUNWAY 09L • {secondCity.name.toUpperCase()} INTERNATIONAL
-                    </span>
+              {/* CAMERA VIEW 3: COCKPIT SYNTHETIC VISION HUD */}
+              {cameraView === 'cockpit' && (
+                <div className="absolute inset-0 bg-slate-950 flex flex-col items-center justify-center p-4">
+                  {/* Artificial Horizon Pitch Ladder */}
+                  <div className="relative w-full max-w-md h-56 border-2 border-emerald-500/50 rounded-2xl bg-emerald-950/20 p-3 font-mono text-emerald-400 flex flex-col justify-between shadow-inner">
+                    
+                    {/* Top Compass Heading Tape */}
+                    <div className="flex items-center justify-between border-b border-emerald-500/40 pb-1 text-xs">
+                      <span>HDG: 085° MAG</span>
+                      <span className="font-black text-amber-300">AUTOPILOT: LNAV/VNAV</span>
+                      <span>DEST: {secondCity.name.toUpperCase()}</span>
+                    </div>
+
+                    {/* Center Pitch Crosshair & Horizon Line */}
+                    <div className="relative flex items-center justify-center my-auto">
+                      {/* Center Aircraft Reticle */}
+                      <div className="w-8 h-8 border-2 border-emerald-400 rounded-full flex items-center justify-center">
+                        <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full" />
+                      </div>
+                      
+                      {/* Left & Right Horizon Bars */}
+                      <div 
+                        className="absolute w-3/4 border-t-2 border-emerald-400"
+                        style={{ transform: `rotate(${bankAngle}deg)` }}
+                      >
+                        <div className="flex justify-between text-[9px] -mt-4 font-bold">
+                          <span>10°</span>
+                          <span>10°</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bottom Ground Speed & Mach */}
+                    <div className="flex items-center justify-between border-t border-emerald-500/40 pt-1 text-xs">
+                      <span>GS: {airSpeed} KT</span>
+                      <span>MACH: 0.85</span>
+                      <span>FMS: RNP 0.3</span>
+                    </div>
                   </div>
                 </div>
               )}
 
-              {/* 3D AIRCRAFT MODEL */}
-              <div 
-                className="relative z-20 transition-all duration-300 ease-out select-none flex flex-col items-center"
-                style={{
-                  transform: `
-                    translateY(${
-                      stage === 'takeoff_3d' 
-                        ? (1 - progressPercent / 25) * 40 - 20 
-                        : stage === 'cruising_3d'
-                        ? Math.sin(Date.now() / 400) * 8
-                        : (progressPercent - 75) * 1.5
-                    }px)
-                    rotateX(${
-                      stage === 'takeoff_3d' 
-                        ? -18 
-                        : stage === 'cruising_3d'
-                        ? Math.sin(progressPercent / 5) * 4
-                        : 14
-                    }deg)
-                    rotateZ(${
-                      stage === 'landing_3d' ? -8 : stage === 'takeoff_3d' ? 4 : 0
-                    }deg)
-                    scale(${stage === 'landing_3d' ? 1.25 : 1.1})
-                  `
-                }}
-              >
-                {/* 3D Airplane Emoji + Aircraft Silhouette Body */}
-                <div className="relative">
-                  <span className="text-7xl sm:text-8xl filter drop-shadow-[0_15px_15px_rgba(0,0,0,0.6)]">
-                    ✈️
-                  </span>
-
-                  {/* Twin Jet Engine Afterburners */}
-                  <div className="absolute -bottom-2 left-3 w-3 h-6 bg-gradient-to-t from-sky-400 via-blue-500 to-transparent rounded-full blur-[2px] animate-pulse" />
-                  <div className="absolute -bottom-2 right-3 w-3 h-6 bg-gradient-to-t from-sky-400 via-blue-500 to-transparent rounded-full blur-[2px] animate-pulse" />
-
-                  {/* Navigation Lights */}
-                  <div className="absolute top-2 left-0 w-2 h-2 rounded-full bg-red-500 animate-ping" />
-                  <div className="absolute top-2 right-0 w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                </div>
-
-                <div className="mt-1 px-3 py-0.5 rounded-full bg-slate-900/80 border border-slate-700 text-[10px] font-bold text-sky-300">
-                  {stage === 'takeoff_3d' && 'Ascending to Cruise Altitude...'}
-                  {stage === 'cruising_3d' && `Air Route: ${currentCity.name} ➔ ${secondCity.name}`}
-                  {stage === 'landing_3d' && 'Deploying Landing Gear & Touchdown!'}
-                </div>
-              </div>
-
-              {/* Cockpit HUD Overlay */}
-              <div className="absolute top-3 left-3 bg-slate-900/85 border border-slate-700/80 rounded-xl p-2 text-[10px] font-mono space-y-0.5">
+              {/* Cockpit HUD Overlay On Left Top */}
+              <div className="absolute top-3 left-3 bg-slate-900/90 border border-slate-700/80 rounded-xl p-2.5 text-[10px] font-mono space-y-0.5 backdrop-blur-md shadow-lg pointer-events-none z-40">
                 <div className="text-slate-400">ALTITUDE: <strong className="text-emerald-400">{altitude.toLocaleString()} m</strong></div>
                 <div className="text-slate-400">AIRSPEED: <strong className="text-sky-300">{airSpeed} km/h</strong></div>
-                <div className="text-slate-400">REMAINING: <strong className="text-amber-300">{distanceKm.toLocaleString()} km</strong></div>
+                <div className="text-slate-400">DISTANCE REMAINING: <strong className="text-amber-300">{distanceKm.toLocaleString()} km</strong></div>
+              </div>
+
+              {/* Flight Time Accumulator On Right Top */}
+              <div className="absolute top-3 right-3 bg-slate-900/90 border border-slate-700/80 rounded-xl px-3 py-1.5 text-xs font-mono font-bold text-amber-300 backdrop-blur-md shadow-lg pointer-events-none z-40 flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-amber-400 animate-spin" />
+                <span>Travel Time: +{currentElapsedHours}h {currentElapsedMins}m</span>
               </div>
             </div>
 
@@ -412,11 +624,11 @@ export const FlightSequence: React.FC<FlightSequenceProps> = ({
               <div className="flex items-center justify-between text-xs font-mono text-slate-300">
                 <span className="flex items-center gap-1.5">
                   <Compass className="w-3.5 h-3.5 text-sky-400 animate-spin" />
-                  <span>Flight Progress</span>
+                  <span>Flight Trajectory ({currentCity.name} ➔ {secondCity.name})</span>
                 </span>
-                <span className="font-bold text-sky-300">{progressPercent}%</span>
+                <span className="font-bold text-sky-300">{progressPercent}% Completed</span>
               </div>
-              <div className="w-full bg-slate-800 rounded-full h-3 overflow-hidden p-0.5 border border-slate-700">
+              <div className="w-full bg-slate-800 rounded-full h-3.5 overflow-hidden p-0.5 border border-slate-700">
                 <div 
                   className="h-full rounded-full bg-gradient-to-r from-sky-400 via-blue-500 to-amber-400 transition-all duration-100 shadow"
                   style={{ width: `${progressPercent}%` }}

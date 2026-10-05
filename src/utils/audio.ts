@@ -348,5 +348,10 @@ export const soundEffects = {
       osc.start(st);
       osc.stop(st + 0.28);
     });
+  },
+
+  // Alias for victory fanfare
+  playVictory: () => {
+    soundEffects.playVictoryFanfare();
   }
 };
