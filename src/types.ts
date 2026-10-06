@@ -9,7 +9,7 @@ export type ElementType =
   | 'Fairy'
   | 'Wind';
 
-export type MonsterRarity = 'Common' | 'Rare' | 'Epic' | 'Legendary';
+export type MonsterRarity = 'Common' | 'Rare' | 'Epic' | 'Legendary' | 'Mythic' | 'Boss';
 
 export interface Question {
   id: string;
@@ -20,6 +20,9 @@ export interface Question {
   correctIndex: number;
   explanation: string;
   moveName: string; // e.g. "Flame Blast", "Hydro Pump", "Thunder Shock"
+  isTextInput?: boolean; // When true, requires typing the exact answer (not multiple choice)
+  acceptedAnswers?: string[]; // Allowed text answer variations
+  difficulty?: 'easy' | 'medium' | 'hard' | 'extreme'; // Question challenge rating
 }
 
 export interface Monster {

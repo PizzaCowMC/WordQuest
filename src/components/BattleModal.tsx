@@ -19,7 +19,9 @@ import {
   ShieldCheck,
   Flame,
   Droplets,
-  Wind
+  Wind,
+  Keyboard,
+  Send
 } from 'lucide-react';
 
 interface BattleModalProps {
@@ -48,6 +50,7 @@ export const BattleModal: React.FC<BattleModalProps> = ({
   // Track selected and already-tried wrong options for the current question
   const [selectedOptionIdx, setSelectedOptionIdx] = useState<number | null>(null);
   const [wrongOptionIndices, setWrongOptionIndices] = useState<number[]>([]);
+  const [typedAnswer, setTypedAnswer] = useState<string>('');
 
   // 3 Time Check (3 Lives / Attempts per question)
   const [chancesLeft, setChancesLeft] = useState<number>(3);
@@ -74,6 +77,7 @@ export const BattleModal: React.FC<BattleModalProps> = ({
     setShowHint(false);
     setSelectedOptionIdx(null);
     setWrongOptionIndices([]);
+    setTypedAnswer('');
     setShowCheckReview(false);
     setFeedback({ type: null, message: '' });
     setIsCapturing(false);
@@ -160,6 +164,76 @@ export const BattleModal: React.FC<BattleModalProps> = ({
     }
   };
 
+  const handleSubmitTypedAnswer = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (isCapturing || isWon || !question || showCheckReview || feedback.type === 'correct') return;
+
+    const trimmed = typedAnswer.trim().toLowerCase();
+    if (!trimmed) return;
+
+    const acceptedList = (question.acceptedAnswers || [question.options[question.correctIndex || 0]])
+      .map(ans => ans.toLowerCase().trim());
+
+    const isMatch = acceptedList.includes(trimmed);
+
+    if (isMatch) {
+      // CORRECT TYPED ANSWER!
+      soundEffects.playAttackImpact();
+      soundEffects.playCorrectHit();
+      setMonsterShake(true);
+      setTimeout(() => setMonsterShake(false), 500);
+
+      const nextHp = Math.max(0, monsterHp - 1);
+      setMonsterHp(nextHp);
+
+      setFeedback({
+        type: 'correct',
+        message: `Direct hit! Typed "${typedAnswer.trim()}" perfectly with ${question.moveName}!`,
+        explanation: question.explanation
+      });
+
+      if (nextHp <= 0 || currentQIndex + 1 >= totalQuestions) {
+        setTimeout(() => {
+          triggerCaptureSequence();
+        }, 1200);
+      } else {
+        setTimeout(() => {
+          setCurrentQIndex(prev => prev + 1);
+          setTypedAnswer('');
+          setSelectedOptionIdx(null);
+          setWrongOptionIndices([]);
+          setChancesLeft(3);
+          setShowHint(false);
+          setFeedback({ type: null, message: '' });
+        }, 1800);
+      }
+    } else {
+      // WRONG TYPED ANSWER
+      soundEffects.playWrong();
+      setTrainerShake(true);
+      setTimeout(() => setTrainerShake(false), 500);
+
+      const nextChances = chancesLeft - 1;
+      setChancesLeft(nextChances);
+
+      if (nextChances <= 0) {
+        setShowCheckReview(true);
+        setFeedback({
+          type: 'wrong',
+          message: 'All 3 chances used! Review the rule below to restore your checks.',
+          explanation: question.explanation
+        });
+      } else {
+        setFeedback({
+          type: 'wrong',
+          message: `"${typedAnswer.trim()}" is not correct. Check your spelling and try again! (${nextChances} chances left)`,
+          explanation: `Tip: Look at the teacher clue for letter hints!`
+        });
+        setShowHint(true);
+      }
+    }
+  };
+
   const handleRestoreChances = () => {
     soundEffects.playSelect();
     setChancesLeft(3);
@@ -205,7 +279,13 @@ export const BattleModal: React.FC<BattleModalProps> = ({
       }
 
       setTimeout(() => {
-        onVictory(monster.id, 100);
+        const victoryXp = 
+          monster.rarity === 'Boss' ? 5000 :
+          monster.rarity === 'Mythic' ? 1500 :
+          monster.rarity === 'Legendary' ? 500 :
+          monster.rarity === 'Epic' ? 250 :
+          monster.rarity === 'Rare' ? 150 : 100;
+        onVictory(monster.id, victoryXp);
       }, 2500);
     }, 2600);
   };
@@ -219,7 +299,9 @@ export const BattleModal: React.FC<BattleModalProps> = ({
     Common: 'from-slate-400 to-slate-500 text-slate-200 border-slate-400/40',
     Rare: 'from-sky-400 to-blue-500 text-sky-200 border-sky-400/40',
     Epic: 'from-purple-500 to-pink-500 text-purple-200 border-purple-400/40',
-    Legendary: 'from-amber-400 via-yellow-400 to-orange-500 text-amber-100 border-amber-400/60 animate-pulse'
+    Legendary: 'from-amber-400 via-yellow-400 to-orange-500 text-amber-100 border-amber-400/60 animate-pulse',
+    Mythic: 'from-fuchsia-500 via-purple-600 to-indigo-500 text-fuchsia-100 border-fuchsia-400/80 shadow-lg shadow-fuchsia-500/30 animate-pulse',
+    Boss: 'from-amber-400 via-rose-600 to-purple-800 text-amber-100 border-amber-300 ring-2 ring-amber-400/80 shadow-xl shadow-amber-500/50 animate-pulse'
   };
 
   return (
@@ -482,8 +564,47 @@ export const BattleModal: React.FC<BattleModalProps> = ({
             </div>
           )}
 
-          {/* 4 Attack Move Buttons */}
-          {question && !isCapturing && !isWon && !showCheckReview && (
+          {/* Interactive Typing Form for Non-Multiple-Choice Questions */}
+          {question && !isCapturing && !isWon && !showCheckReview && question.isTextInput && (
+            <form onSubmit={handleSubmitTypedAnswer} className="flex flex-col gap-2.5 animate-in fade-in">
+              <div className="flex items-center justify-between text-xs font-bold text-sky-300">
+                <div className="flex items-center gap-2">
+                  <Keyboard className="w-4 h-4 text-sky-400" />
+                  <span>Type Your Answer Directly (Keyboard Challenge):</span>
+                </div>
+                {question.acceptedAnswers && (
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {question.acceptedAnswers[0]?.length} Letters
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  autoFocus
+                  value={typedAnswer}
+                  onChange={(e) => setTypedAnswer(e.target.value)}
+                  placeholder="Type the exact English word / past tense..."
+                  disabled={feedback.type === 'correct'}
+                  className="flex-1 px-4 py-3 rounded-2xl bg-slate-900 border-2 border-slate-700 text-white font-bold text-sm sm:text-base placeholder:text-slate-500 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/30 transition shadow-inner"
+                />
+                <button
+                  type="submit"
+                  disabled={!typedAnswer.trim() || feedback.type === 'correct'}
+                  className="px-5 py-3 rounded-2xl bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 disabled:opacity-40 disabled:cursor-not-allowed text-slate-950 font-black text-sm flex items-center gap-1.5 shadow-lg transition active:scale-95 cursor-pointer shrink-0"
+                >
+                  <Send className="w-4 h-4" />
+                  <span>Attack!</span>
+                </button>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Press <span className="font-mono text-slate-200">Enter</span> to submit your typed attack. Case does not matter.
+              </p>
+            </form>
+          )}
+
+          {/* 4 Attack Move Buttons (Multiple Choice) */}
+          {question && !isCapturing && !isWon && !showCheckReview && !question.isTextInput && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {question.options.map((option, idx) => {
                 const isWrong = wrongOptionIndices.includes(idx);

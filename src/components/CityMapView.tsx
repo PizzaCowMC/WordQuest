@@ -32,7 +32,8 @@ import {
   Landmark,
   Building2,
   Sparkles,
-  Maximize2
+  Maximize2,
+  Crown
 } from 'lucide-react';
 import { CityMiniMapOverlay } from './CityMiniMapOverlay';
 import { VirtualJoystick } from './VirtualJoystick';
@@ -41,6 +42,8 @@ import { CityWeatherOverlay, CityWeatherWidget } from './CityWeatherOverlay';
 import { getRandomWeatherForTimestamp } from '../utils/weatherUtils';
 import { UpdateLogsModal } from './UpdateLogsModal';
 import { APP_VERSION } from '../data/updateLogs';
+import { TrainerXpBar } from './TrainerXpBar';
+import { FINAL_BOSS_MONSTER } from '../data/finalBoss';
 
 interface CityMapViewProps {
   currentCity: CityData;
@@ -91,8 +94,16 @@ export function generateMobModelHtml(monster: Monster, isDefeated: boolean, isFa
   }
 
   const rarity = monster.rarity || 'Epic';
-  const rarityCrown = rarity === 'Legendary' ? '👑' : rarity === 'Epic' ? '💎' : '⭐';
-  const rarityBadgeColor = rarity === 'Legendary' ? 'bg-amber-400 text-slate-950 border-amber-300' : rarity === 'Epic' ? 'bg-purple-500 text-white border-purple-300' : 'bg-sky-500 text-white border-sky-300';
+  const rarityCrown = rarity === 'Boss' ? '👑🔥' : rarity === 'Mythic' ? '🌟✨' : rarity === 'Legendary' ? '👑' : rarity === 'Epic' ? '💎' : '⭐';
+  const rarityBadgeColor = rarity === 'Boss' 
+    ? 'bg-gradient-to-r from-purple-600 via-rose-600 to-amber-500 text-amber-100 border-amber-300 ring-2 ring-amber-300 animate-pulse shadow-lg' 
+    : rarity === 'Mythic' 
+    ? 'bg-gradient-to-r from-amber-400 via-rose-500 to-purple-600 text-white border-amber-200 ring-1 ring-amber-300 shadow-md animate-pulse' 
+    : rarity === 'Legendary' 
+    ? 'bg-amber-400 text-slate-950 border-amber-300' 
+    : rarity === 'Epic' 
+    ? 'bg-purple-500 text-white border-purple-300' 
+    : 'bg-sky-500 text-white border-sky-300';
   const flip = isFacingLeft ? 'scaleX(-1)' : 'scaleX(1)';
 
   // Element specific decorative particles & accessories
@@ -1106,6 +1117,31 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
           >
             <Train className="w-4 h-4 text-sky-200 shrink-0" />
             <span className="hidden sm:inline">Express Lines</span>
+          </button>
+
+          {/* Trainer Level & XP Progress Bar (Lv. 1 - Lv. 1000) */}
+          <TrainerXpBar
+            xp={student.xp}
+            level={student.level}
+            avatarIcon={student.appearance?.avatar || '👦'}
+            name={student.name}
+          />
+
+          {/* Final Boss Portal Button */}
+          <button
+            id="open-final-boss-btn"
+            onClick={() => {
+              soundEffects.playSelect();
+              onSelectMonster(FINAL_BOSS_MONSTER);
+            }}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-gradient-to-r from-purple-800 via-indigo-700 to-amber-500 hover:from-purple-700 hover:to-amber-400 border-2 border-amber-300 text-white text-xs font-black shadow-xl shadow-purple-900/40 transition active:scale-95 cursor-pointer shrink-0 animate-pulse"
+            title="Challenge the Final Boss: The Grand Lexicon Archon (Super Hard C2 Questions!)"
+          >
+            <Crown className="w-4 h-4 text-amber-300 animate-bounce" />
+            <span className="hidden sm:inline">FINAL BOSS</span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-400 text-slate-950 font-black font-mono">
+              Lv.1000
+            </span>
           </button>
         </div>
 

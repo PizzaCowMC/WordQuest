@@ -1,6 +1,7 @@
 import { CityData, CityBuilding, CityAirport, Monster, Question, ElementType, MonsterRarity } from '../types';
 import { INITIAL_CITIES } from './gameData';
 import { getQuestionsForMonster } from './masterQuestionBank';
+import { getSpecialMobForCity } from './specialMobs';
 
 export interface WorldCityMeta {
   id: string;
@@ -845,6 +846,12 @@ export function getCity20Mobs(cityId: string, baseCity: CityData, cityName: stri
       lessonTopic: `${cityName} Street Exploration #${mobNum}`,
       questions: getQuestionsForMonster(cityIndex, mobNum, slot.rarity === 'Legendary' ? 5 : 4)
     });
+  }
+
+  // Inject iconic Mythic Special Mob if this city has one (e.g. Chronomancer, Kitsune Kami, etc.)
+  const specialMob = getSpecialMobForCity(cityName, [cityLat, cityLng]);
+  if (specialMob) {
+    result.unshift(specialMob);
   }
 
   return result.slice(0, 20);

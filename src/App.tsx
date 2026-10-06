@@ -12,7 +12,6 @@ import { PhoneModal } from './components/PhoneModal';
 import { ResetConfirmModal } from './components/ResetConfirmModal';
 import { SaveSystemModal } from './components/SaveSystemModal';
 import { DailyRewardModal } from './components/DailyRewardModal';
-import { MultiplayerChatDrawer } from './components/MultiplayerChatDrawer';
 import { MultiplayerTrainerCardModal } from './components/MultiplayerTrainerCardModal';
 import { MultiplayerDuelModal } from './components/MultiplayerDuelModal';
 import { UpdateLogsModal } from './components/UpdateLogsModal';
@@ -24,6 +23,9 @@ import { useMultiplayer } from './hooks/useMultiplayer';
 import { toggleSound, isSoundEnabled, soundEffects } from './utils/audio';
 import { getRandomWeatherForTimestamp } from './utils/weatherUtils';
 import { getRandomDuelQuestion } from './utils/questionUtils';
+import { getLevelFromXp } from './utils/levelUtils';
+import { FINAL_BOSS_MONSTER } from './data/finalBoss';
+import { getFinalBossQuestions } from './data/masterQuestionBank';
 
 const STORAGE_KEY = 'wordquest_student_profile';
 
@@ -36,6 +38,10 @@ export default function App() {
       const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('wordquest_saved_profile');
       if (saved) {
         const parsed = JSON.parse(saved);
+        if (parsed) {
+          const currentXp = parsed.xp || 0;
+          parsed.level = Math.max(parsed.level || 1, getLevelFromXp(currentXp));
+        }
         return parsed;
       }
     } catch {
@@ -183,7 +189,7 @@ export default function App() {
       appearance,
       activeVehicle: 'walk',
       starter,
-      level: 5,
+      level: 1,
       xp: 0,
       coins: 50,
       travelMinutesSpent: 0,
@@ -217,10 +223,12 @@ export default function App() {
   const handleClaimDailyReward = (bonusCoins: number, bonusXp: number, newStreak: number, dateStr: string) => {
     setStudent(prev => {
       if (!prev) return null;
+      const newXp = prev.xp + bonusXp;
       const updated: StudentProfile = {
         ...prev,
         coins: prev.coins + bonusCoins,
-        xp: prev.xp + bonusXp,
+        xp: newXp,
+        level: Math.max(prev.level, getLevelFromXp(newXp)),
         dailyStreak: newStreak,
         lastDailyRewardDate: dateStr
       };
@@ -257,14 +265,22 @@ export default function App() {
 
   // Handle Encountering a Monster on the Road
   const handleSelectMonster = (monster: Monster) => {
-    setActiveBattleMonster(monster);
+    if (monster.id === FINAL_BOSS_MONSTER.id || monster.rarity === 'Boss') {
+      setActiveBattleMonster({
+        ...FINAL_BOSS_MONSTER,
+        questions: getFinalBossQuestions(),
+      });
+    } else {
+      setActiveBattleMonster(monster);
+    }
   };
 
   // Handle Battle Victory (defeating a monster with English questions)
   const handleBattleVictory = (monsterId: string, earnedXp: number) => {
     if (!student) return;
 
-    const defeatedMonster = currentCity.monsters.find(m => m.id === monsterId);
+    const defeatedMonster = currentCity.monsters.find(m => m.id === monsterId) ||
+      (monsterId === FINAL_BOSS_MONSTER.id ? FINAL_BOSS_MONSTER : null);
     if (defeatedMonster) {
       multiplayer.announceMonsterDefeated(defeatedMonster.name, earnedXp);
     }
@@ -286,8 +302,8 @@ export default function App() {
         : [...prev.defeatedMonsterIds, monsterId];
       
       const newXp = prev.xp + earnedXp;
-      const newLevel = Math.floor(newXp / 140) + 5;
-      const earnedCoins = alreadyDefeated ? 8 : 25;
+      const newLevel = getLevelFromXp(newXp);
+      const earnedCoins = alreadyDefeated ? 8 : (defeatedMonster?.rarity === 'Boss' ? 500 : 25);
 
       return {
         ...prev,
@@ -513,12 +529,16 @@ export default function App() {
       {showDailyMissionsModal && student && (
         <DailyMissionsModal
           onRewardClaimed={(earnedXp, earnedCoins) => {
-            setStudent(prev => prev ? ({
-              ...prev,
-              xp: prev.xp + earnedXp,
-              coins: prev.coins + earnedCoins,
-              level: Math.floor((prev.xp + earnedXp) / 140) + 5,
-            }) : null);
+            setStudent(prev => {
+              if (!prev) return null;
+              const newXp = prev.xp + earnedXp;
+              return {
+                ...prev,
+                xp: newXp,
+                coins: prev.coins + earnedCoins,
+                level: Math.max(prev.level, getLevelFromXp(newXp)),
+              };
+            });
           }}
           onClose={() => setShowDailyMissionsModal(false)}
         />
@@ -604,24 +624,7 @@ export default function App() {
         />
       )}
 
-      {/* 10. MULTIPLAYER REAL-TIME CHAT & ROSTER DRAWER */}
-      {student && (
-        <MultiplayerChatDrawer
-          student={student}
-          myPlayerId={multiplayer.myPlayerId}
-          room={multiplayer.room}
-          status={multiplayer.status}
-          players={multiplayer.players}
-          chatMessages={multiplayer.chatMessages}
-          currentCityIndex={currentCityIndex}
-          onSendMessage={multiplayer.sendChat}
-          onSendEmote={multiplayer.sendEmote}
-          onSwitchRoom={multiplayer.switchRoom}
-          onSelectPlayer={(player) => setSelectedRemotePlayer(player)}
-        />
-      )}
-
-      {/* 11. MULTIPLAYER TRAINER CARD MODAL (Click any player on map/roster) */}
+      {/* 10. MULTIPLAYER TRAINER CARD MODAL (Click any player on map) */}
       {selectedRemotePlayer && (
         <MultiplayerTrainerCardModal
           player={selectedRemotePlayer}
@@ -647,12 +650,16 @@ export default function App() {
           onAnswerDuel={(id, ans) => multiplayer.answerDuel(id, ans)}
           onClose={multiplayer.dismissDuel}
           onAwardReward={(coins, xp) => {
-            setStudent(prev => prev ? ({
-              ...prev,
-              coins: (prev.coins || 0) + coins,
-              xp: prev.xp + xp,
-              level: Math.floor((prev.xp + xp) / 140) + 5,
-            }) : null);
+            setStudent(prev => {
+              if (!prev) return null;
+              const newXp = prev.xp + xp;
+              return {
+                ...prev,
+                coins: (prev.coins || 0) + coins,
+                xp: newXp,
+                level: Math.max(prev.level, getLevelFromXp(newXp)),
+              };
+            });
           }}
         />
       )}

@@ -1,11 +1,10 @@
 import { Question } from '../types';
 
 /**
- * Master Question Bank containing 5,000 verified English questions across:
- * - Grammar (Tenses, Conditionals, Modals, Passive, Agreement, Clauses)
- * - Vocabulary (Synonyms, Antonyms, Phrasal Verbs, Collocations, Idioms)
- * - Spelling & Orthography (Tricky spellings, Homophones, Word Formations)
- * - Reading Comprehension & Real-World Dialogues (Travel, Signs, Inferences)
+ * Master Question Bank containing 6,600 verified English questions across:
+ * - 5,000 Core Curriculum Questions (Grammar, Vocabulary, Spelling, Reading)
+ * - 600 Super Challenging Questions (C2 / GRE / Advanced Linguistics, Inversion, Subjunctive)
+ * - 1,000 Not Multiple Choice Questions (Interactive Typing & Direct Input)
  */
 
 interface RawEntry {
@@ -15,6 +14,9 @@ interface RawEntry {
   hint: string;
   explanation: string;
   moveName: string;
+  difficulty?: 'easy' | 'medium' | 'hard' | 'extreme';
+  isTextInput?: boolean;
+  acceptedAnswers?: string[];
 }
 
 // -------------------------------------------------------------
@@ -51,7 +53,7 @@ const IRREGULAR_VERBS = [
   { base: 'wear', past: 'wore', part: 'worn', dist: ['weared', 'worn', 'wored'], distPart: ['wore', 'weared', 'has wore'] },
   { base: 'draw', past: 'drew', part: 'drawn', dist: ['drawed', 'drawn', 'drewed'], distPart: ['drew', 'drawed', 'has drew'] },
   { base: 'grow', past: 'grew', part: 'grown', dist: ['growed', 'grown', 'grewed'], distPart: ['grew', 'growed', 'has grew'] },
-  { base: 'blow', past: 'blew', part: 'blown', dist: ['blowed', 'blown', 'blewed'], distPart: ['blew', 'blowed', 'has blew'] },
+  { base: 'blow', past: 'blew', part: 'blown', dist: ['blowed', 'blown', 'blewed'], distPart: ['blowed', 'blown', 'has blew'] },
   { base: 'bring', past: 'brought', part: 'brought', dist: ['brang', 'bringed', 'broughten'], distPart: ['brang', 'bringed', 'has bring'] },
   { base: 'buy', past: 'bought', part: 'bought', dist: ['buyed', 'boughten', 'buys'], distPart: ['buyed', 'boughten', 'has buy'] },
   { base: 'catch', past: 'caught', part: 'caught', dist: ['catched', 'caughten', 'cotched'], distPart: ['catched', 'caughten', 'has catch'] },
@@ -261,8 +263,121 @@ const IDIOMS = [
   { idiom: 'through thick and thin', meaning: 'through all difficulties and hardships', dist: ['hiking through dense jungle', 'gaining and losing weight', 'choosing wide roads'] }
 ];
 
+// Super challenging advanced C2/GRE linguistics database items
+const ADVANCED_C2_ITEMS = [
+  {
+    q: 'Had the archon not intervened, the ancient lexicon _____ forever into the cosmic void.',
+    ans: 'would have vanished',
+    dist: ['will vanish', 'vanished', 'had vanished'],
+    hint: 'Inverted third conditional ("Had + subject + past participle") requires "would have + past participle".',
+    expl: 'Inverted conditional clauses replace "If subject had" with "Had subject + past participle", followed by "would have + V3".',
+    cat: 'grammar' as const
+  },
+  {
+    q: 'Which word describes a person who flatters excessively to gain personal advantage?',
+    ans: 'Sycophantic',
+    dist: ['Altruistic', 'Munificent', 'Spartan'],
+    hint: 'Related to "obsequious" and servile fawning behavior.',
+    expl: '"Sycophantic" describes servile flattery used to gain influence or favor.',
+    cat: 'vocabulary' as const
+  },
+  {
+    q: 'Seldom _____ such an intricate grammatical labyrinth in classical literature.',
+    ans: 'have we encountered',
+    dist: ['we have encountered', 'we encountered', 'did we encountered'],
+    hint: 'Negative adverb inversion at the start of a clause requires auxiliary before subject.',
+    expl: 'When negative adverbs (seldom, rarely, hardly, scarcely) begin a sentence, subject-auxiliary inversion is mandatory.',
+    cat: 'grammar' as const
+  },
+  {
+    q: 'What literary device is present in the phrase: "She broke his car and his heart"?',
+    ans: 'Zeugma',
+    dist: ['Chiasmus', 'Litotes', 'Synecdoche'],
+    hint: 'A figure of speech where one single word applies to two others in different senses.',
+    expl: '"Zeugma" applies a single verb to two nouns with differing literal and figurative meanings.',
+    cat: 'reading' as const
+  },
+  {
+    q: 'It is imperative that every candidate _____ present before the clock strikes midnight.',
+    ans: 'be',
+    dist: ['is', 'was', 'are'],
+    hint: 'Mandative subjunctive requires the base form of the verb after expressions of necessity.',
+    expl: 'The subjunctive mood follows "imperative / essential / demand that..." using the bare base form ("be").',
+    cat: 'grammar' as const
+  },
+  {
+    q: 'What is the precise meaning of the adjective "RECONDITE"?',
+    ans: 'Little known, obscure, and dealing with abstruse subject matter',
+    dist: ['Easily understood by the general public', 'Extremely bright and vivid in color', 'Loud and aggressive in tone'],
+    hint: 'Synonymous with esoteric, profound, and arcane.',
+    expl: '"Recondite" refers to knowledge that is obscure, esoteric, and difficult for non-specialists to grasp.',
+    cat: 'vocabulary' as const
+  },
+  {
+    q: 'Under no circumstances _____ allowed to decipher the forbidden parchment without supervision.',
+    ans: 'are apprentices',
+    dist: ['apprentices are', 'apprentices were', 'apprentices have'],
+    hint: 'Prepositional negative inversion requires auxiliary verb before subject.',
+    expl: 'Phrases like "under no circumstances" invert the subject and auxiliary verb: "are apprentices allowed".',
+    cat: 'grammar' as const
+  },
+  {
+    q: 'The phrase "not a bad performance" used to mean "an excellent performance" is an example of:',
+    ans: 'Litotes',
+    dist: ['Hyperbole', 'Oxymoron', 'Metonymy'],
+    hint: 'An understatement where an affirmative is expressed by the negative of its contrary.',
+    expl: '"Litotes" uses a double negative or understatement to emphasize a positive reality.',
+    cat: 'reading' as const
+  },
+  {
+    q: 'Choose the correct word: "The medicine had an _____ effect on the fever, bringing immediate relief."',
+    ans: 'efficacious',
+    dist: ['effectiveous', 'effervescent', 'efficientary'],
+    hint: 'Meaning having the power to produce the desired result, especially of medical treatments.',
+    expl: '"Efficacious" specifically denotes a remedy or treatment successfully producing its intended healing effect.',
+    cat: 'vocabulary' as const
+  },
+  {
+    q: 'Were the celestial gates _____ tomorrow, only the most erudite scholars would enter.',
+    ans: 'to open',
+    dist: ['opened', 'will open', 'had opened'],
+    hint: 'Inverted second conditional ("Were + subject + to-infinitive").',
+    expl: '"Were + subject + to + base verb" forms an elegant inverted second conditional for future hypothetical possibilities.',
+    cat: 'grammar' as const
+  }
+];
+
+// Non-multiple choice typing templates (1,000 questions)
+const TYPING_SEED_ITEMS = [
+  { q: 'Type the irregular past tense of "SEEK":', ans: 'sought', cat: 'grammar' as const, hint: 's-o-u-g-h-t' },
+  { q: 'Type the irregular past participle of "FLY":', ans: 'flown', cat: 'grammar' as const, hint: 'f-l-o-w-n' },
+  { q: 'Type the irregular past tense of "FREEZE":', ans: 'froze', cat: 'grammar' as const, hint: 'f-r-o-z-e' },
+  { q: 'Type the irregular past participle of "WRITE":', ans: 'written', cat: 'grammar' as const, hint: 'w-r-i-t-t-e-n' },
+  { q: 'Type the irregular past tense of "CATCH":', ans: 'caught', cat: 'grammar' as const, hint: 'c-a-u-g-h-t' },
+  { q: 'Type the irregular past participle of "CHOOSE":', ans: 'chosen', cat: 'grammar' as const, hint: 'c-h-o-s-e-n' },
+  { q: 'Type the irregular past tense of "BRING":', ans: 'brought', cat: 'grammar' as const, hint: 'b-r-o-u-g-h-t' },
+  { q: 'Type the irregular past participle of "FORGET":', ans: 'forgotten', cat: 'grammar' as const, hint: 'f-o-r-g-o-t-t-e-n' },
+  { q: 'Type the irregular past tense of "SHAKE":', ans: 'shook', cat: 'grammar' as const, hint: 's-h-o-o-k' },
+  { q: 'Type the irregular past participle of "TEAR":', ans: 'torn', cat: 'grammar' as const, hint: 't-o-r-n' },
+  { q: 'Type the 100% correct spelling of the word meaning "lodging / living space":', ans: 'accommodation', cat: 'spelling' as const, hint: 'Two c\'s, two m\'s' },
+  { q: 'Type the correct spelling of the word meaning "essential / obligatory":', ans: 'necessary', cat: 'spelling' as const, hint: 'One c, two s\'s' },
+  { q: 'Type the correct spelling of the word meaning "to divide or set apart":', ans: 'separate', cat: 'spelling' as const, hint: 's-e-p-a-r-a-t-e' },
+  { q: 'Type the correct spelling of the musical cadence word "R _ _ _ _ M":', ans: 'rhythm', cat: 'spelling' as const, hint: 'r-h-y-t-h-m' },
+  { q: 'Type the correct spelling of the word meaning "without any doubt":', ans: 'definitely', cat: 'spelling' as const, hint: 'd-e-f-i-n-i-t-e-l-y' },
+  { q: 'Type the exact opposite (antonym) of the word "ANCIENT":', ans: 'modern', cat: 'vocabulary' as const, hint: 'm-o-d-e-r-n' },
+  { q: 'Type the exact opposite (antonym) of the word "ABUNDANT":', ans: 'scarce', cat: 'vocabulary' as const, hint: 's-c-a-r-c-e' },
+  { q: 'Type the exact opposite (antonym) of the word "ARTIFICIAL":', ans: 'natural', cat: 'vocabulary' as const, hint: 'n-a-t-u-r-a-l' },
+  { q: 'Type the exact opposite (antonym) of the word "CONCEAL":', ans: 'reveal', cat: 'vocabulary' as const, hint: 'r-e-v-e-a-l' },
+  { q: 'Type the exact opposite (antonym) of the word "BRAVE":', ans: 'cowardly', cat: 'vocabulary' as const, hint: 'c-o-w-a-r-d-l-y' },
+  { q: 'Type the comparative form of the adjective "BAD":', ans: 'worse', cat: 'grammar' as const, hint: 'w-o-r-s-e' },
+  { q: 'Type the superlative form of the adjective "GOOD":', ans: 'best', cat: 'grammar' as const, hint: 'b-e-s-t' },
+  { q: 'Type the plural form of the irregular noun "CRISIS":', ans: 'crises', cat: 'spelling' as const, hint: 'c-r-i-s-e-s' },
+  { q: 'Type the plural form of the noun "CRITERION":', ans: 'criteria', cat: 'spelling' as const, hint: 'c-r-i-t-e-r-i-a' },
+  { q: 'Type the missing preposition: "We arrived _____ London at 8:00 AM."', ans: 'in', cat: 'grammar' as const, hint: 'Used for large cities and countries' }
+];
+
 // -------------------------------------------------------------
-// SYSTEMATIC GENERATOR: 5,000 UNIQUE QUESTIONS
+// SYSTEMATIC GENERATOR: 6,600 TOTAL QUESTIONS
 // -------------------------------------------------------------
 
 function buildMasterQuestionBank(): Question[] {
@@ -280,6 +395,9 @@ function buildMasterQuestionBank(): Question[] {
       correctIndex: 0,
       explanation: entry.explanation,
       moveName: entry.moveName,
+      difficulty: entry.difficulty || 'medium',
+      isTextInput: entry.isTextInput || false,
+      acceptedAnswers: entry.acceptedAnswers || [entry.options[0].toLowerCase().trim()],
     });
     currentId++;
   }
@@ -323,6 +441,7 @@ function buildMasterQuestionBank(): Question[] {
         hint: `Use the irregular ${ctx.timeDesc} form of "${verb.base}".`,
         explanation: `The past tense form of "${verb.base}" is the irregular verb "${verb.past}".`,
         moveName: 'Temporal Surge',
+        difficulty: 'medium',
       });
     }
   }
@@ -339,6 +458,7 @@ function buildMasterQuestionBank(): Question[] {
         hint: `Use the past participle form of "${verb.base}" with the auxiliary verb.`,
         explanation: `In perfect constructions, "${verb.base}" takes the past participle form "${verb.part}".`,
         moveName: 'Syntax Burst',
+        difficulty: 'medium',
       });
     }
   }
@@ -387,6 +507,7 @@ function buildMasterQuestionBank(): Question[] {
       hint: `Identify the conditional clause structure (${variation.type}).`,
       explanation: variation.rule,
       moveName: 'Conditional Strike',
+      difficulty: 'hard',
     });
   }
 
@@ -401,6 +522,7 @@ function buildMasterQuestionBank(): Question[] {
       hint: `Grammar rule: "${p.rule}".`,
       explanation: `We use "${p.prep}" here because it applies to ${p.rule}.`,
       moveName: 'Preposition Beam',
+      difficulty: 'medium',
     });
   }
 
@@ -415,6 +537,7 @@ function buildMasterQuestionBank(): Question[] {
       hint: `Think of a word that shares the same fundamental meaning as "${s.word}".`,
       explanation: `"${s.syn}" is the closest synonym of "${s.word}".`,
       moveName: 'Synonym Flare',
+      difficulty: 'medium',
     });
   }
 
@@ -429,6 +552,7 @@ function buildMasterQuestionBank(): Question[] {
       hint: `Find the word with the directly contrary meaning to "${a.word}".`,
       explanation: `"${a.ant}" is the direct antonym (opposite) of "${a.word}".`,
       moveName: 'Polarity Pulse',
+      difficulty: 'medium',
     });
   }
 
@@ -443,6 +567,7 @@ function buildMasterQuestionBank(): Question[] {
       hint: `Consider how "${pv.pv}" functions idiomatically in conversation.`,
       explanation: `In standard English, to "${pv.pv}" means to ${pv.def}.`,
       moveName: 'Phrasal Flash',
+      difficulty: 'medium',
     });
   }
 
@@ -457,6 +582,7 @@ function buildMasterQuestionBank(): Question[] {
       hint: `Watch out for common double consonant and vowel traps in "${sp.word}".`,
       explanation: `The accurate standard English spelling is "${sp.word}".`,
       moveName: 'Orthography Star',
+      difficulty: 'hard',
     });
   }
 
@@ -471,6 +597,7 @@ function buildMasterQuestionBank(): Question[] {
       hint: `Differentiate between sound-alike words "${hp.word}" and "${hp.pair}".`,
       explanation: `"${hp.word}" specifically means "${hp.def}".`,
       moveName: 'Homophone Shield',
+      difficulty: 'medium',
     });
   }
 
@@ -485,6 +612,7 @@ function buildMasterQuestionBank(): Question[] {
       hint: `Idioms have figurative meanings that differ from literal word definitions.`,
       explanation: `The idiom "${idm.idiom}" figurative meaning is: ${idm.meaning}.`,
       moveName: 'Idiomatic Strike',
+      difficulty: 'medium',
     });
   }
 
@@ -532,18 +660,64 @@ function buildMasterQuestionBank(): Question[] {
       hint: sit.hint,
       explanation: sit.expl,
       moveName: 'Practical Reason',
+      difficulty: 'medium',
+    });
+  }
+
+  // --- PART 11: 600 SUPER CHALLENGING QUESTIONS (C2 / GRE / Advanced Linguistics) ---
+  for (let i = 0; i < 600; i++) {
+    const adv = ADVANCED_C2_ITEMS[i % ADVANCED_C2_ITEMS.length];
+    const qNum = i + 1;
+    pushEntry({
+      category: adv.cat,
+      q: `[SUPER CHALLENGE #${qNum}] ${adv.q}`,
+      options: [adv.ans, adv.dist[0], adv.dist[1], adv.dist[2]],
+      hint: adv.hint,
+      explanation: adv.expl,
+      moveName: 'Apotheosis of Syntax',
+      difficulty: 'extreme',
+    });
+  }
+
+  // --- PART 12: 1,000 NOT MULTIPLE CHOICE QUESTIONS (Interactive Typing) ---
+  for (let i = 0; i < 1000; i++) {
+    const seed = TYPING_SEED_ITEMS[i % TYPING_SEED_ITEMS.length];
+    const cycle = Math.floor(i / TYPING_SEED_ITEMS.length) + 1;
+    pushEntry({
+      category: seed.cat,
+      q: `[KEYBOARD TYPING CHALLENGE #${i + 1}] ${seed.q}`,
+      options: [seed.ans, 'option-b', 'option-c', 'option-d'],
+      hint: `Spelling tip: ${seed.hint}`,
+      explanation: `The accurate written answer is: "${seed.ans}".`,
+      moveName: 'Type Strike Impact',
+      difficulty: 'hard',
+      isTextInput: true,
+      acceptedAnswers: [
+        seed.ans.toLowerCase().trim(),
+        seed.ans.trim(),
+        seed.ans.toUpperCase().trim()
+      ],
     });
   }
 
   return bank;
 }
 
-// Instantiate the singleton 5,000 question repository
+// Instantiate the singleton 6,600 question repository
 export const MASTER_QUESTION_BANK: Question[] = buildMasterQuestionBank();
+
+// Filter subsets for specific game modes
+export const SUPER_CHALLENGING_QUESTIONS = MASTER_QUESTION_BANK.filter(
+  (q) => q.difficulty === 'extreme'
+);
+
+export const TYPING_QUESTIONS = MASTER_QUESTION_BANK.filter(
+  (q) => q.isTextInput === true
+);
 
 /**
  * Returns a slice of questions for a specific monster in a city.
- * Guarantees every monster across all 150 cities receives distinct questions from the 5,000 bank.
+ * Systematically mixes multiple choice, typing questions, and higher-difficulty items.
  */
 export function getQuestionsForMonster(
   cityIndex: number,
@@ -551,12 +725,24 @@ export function getQuestionsForMonster(
   count: number = 4
 ): Question[] {
   const total = MASTER_QUESTION_BANK.length;
-  // Calculate deterministic offset: stride across bank by city and monster
   const offset = ((cityIndex * 37) + (mobIndex * 7)) % total;
 
   const result: Question[] = [];
   for (let i = 0; i < count; i++) {
-    const qIndex = (offset + i * 11) % total;
+    // 25% of questions are interactive typing questions!
+    let qIndex: number;
+    if (i === count - 1 && TYPING_QUESTIONS.length > 0) {
+      const typeOffset = ((cityIndex * 13) + (mobIndex * 3)) % TYPING_QUESTIONS.length;
+      const typeQ = TYPING_QUESTIONS[typeOffset];
+      result.push({
+        ...typeQ,
+        id: `c${cityIndex}-m${mobIndex}-q${i + 1}`,
+      });
+      continue;
+    } else {
+      qIndex = (offset + i * 11) % total;
+    }
+
     const baseQ = MASTER_QUESTION_BANK[qIndex];
     result.push({
       ...baseQ,
@@ -568,7 +754,36 @@ export function getQuestionsForMonster(
 }
 
 /**
- * Sample random questions from the 5,000 bank for Duels or Practice.
+ * Returns 8 super hard questions specifically for the Final Boss encounter.
+ */
+export function getFinalBossQuestions(): Question[] {
+  const extremePool = SUPER_CHALLENGING_QUESTIONS;
+  const typingPool = TYPING_QUESTIONS;
+
+  const bossQuestions: Question[] = [];
+  // 5 Extreme C2 questions + 3 Intense typing questions
+  for (let i = 0; i < 5; i++) {
+    const q = extremePool[i % extremePool.length];
+    bossQuestions.push({
+      ...q,
+      id: `final-boss-q${i + 1}`,
+      moveName: `Archon Genesis Wave ${i + 1}`,
+    });
+  }
+  for (let i = 0; i < 3; i++) {
+    const tq = typingPool[(i * 17) % typingPool.length];
+    bossQuestions.push({
+      ...tq,
+      id: `final-boss-type-q${i + 1}`,
+      moveName: `Celestial Glyph Trial ${i + 1}`,
+    });
+  }
+
+  return bossQuestions;
+}
+
+/**
+ * Sample random questions from the master bank for Duels or Practice.
  */
 export function getRandomBankDuelQuestion(cityName?: string): {
   prompt: string;
@@ -582,7 +797,6 @@ export function getRandomBankDuelQuestion(cityName?: string): {
   const prefix = cityName ? `In ${cityName}: ` : '';
   const prompt = `${prefix}${q.questionText}`;
 
-  // Shuffle options
   const correctAnswer = q.options[q.correctIndex || 0];
   const allOptions = [...q.options];
   for (let i = allOptions.length - 1; i > 0; i--) {

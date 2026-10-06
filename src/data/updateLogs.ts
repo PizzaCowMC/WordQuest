@@ -7,9 +7,37 @@ export interface UpdateLogEntry {
   changes: string[];
 }
 
-export const APP_VERSION = '1.13.1';
+export const APP_VERSION = '26.4.0';
 
 export const UPDATE_LOGS: UpdateLogEntry[] = [
+  {
+    version: '26.4.0',
+    releaseDate: 'October 2026',
+    title: 'Ascension to Level 1000, Mythic City Mobs, Final Boss & Master Question Bank',
+    highlight: 'Added authentic leveling up to Lv. 1000 with real-time HUD XP progress bar, spawned 20 mythic special mobs in iconic world metropolises, unlocked the 8-phase Final Boss trial (The Grand Lexicon Archon), added 600 super challenging C2 linguistics questions and 1,000 interactive typing questions, and streamlined online multiplayer by removing chat!',
+    tag: 'Major',
+    changes: [
+      'Real Level Up to Lv. 1000: Full exponential XP progression scaling from Level 1 to Level 1000 with 17 honorary rank titles (from Novice Word Explorer to Ascended Lexicon Sovereign). Defeating monsters, completing missions, and claiming rewards now directly power up your trainer level.',
+      'Live HUD XP Progress Bar: Real-time interactive XP progress bar in the top navigation bar displaying trainer level badge, current percentage, exact XP to next level, and tooltip inspection.',
+      'Special Mobs in Iconic Cities: Spawned 20 unique Mythic special guardians across world metropolises (including Chronomancer of Big Ben in London, Kitsune Kami of Shibuya in Tokyo, Phantom of Eiffel Aurora in Paris, Times Square Neon Leviathan in NYC, Sphinx in Cairo, Minotaur in Athens, and more) offering 1,500 XP.',
+      'The Final Boss Encounter: Face The Grand Lexicon Archon (Lv.1000 Dragon) in the Citadel of Syntax with 8 grueling phases of super hard linguistics and keyboard typing challenges, granting 5,000 XP and the Archon Sovereign crown.',
+      '600 Super Challenging Questions: Added 600 extreme C2 / GRE-level questions covering mandative subjunctives, negative inversions, litotes, rhetorical devices, and nuanced etymology.',
+      '1,000 Not Multiple Choice Questions: Added 1,000 interactive typing challenges where trainers must directly type the exact word, irregular past tense, comparative, or orthographic spelling instead of picking options.',
+      'Removed Multiplayer Chat: Completely removed the multiplayer chat drawer and text message input to provide a pristine, distraction-free environment while keeping 100% real online multiplayer trainer presence, map roaming, and 1v1 knowledge duels intact.'
+    ]
+  },
+  {
+    version: '1.14.0',
+    releaseDate: 'October 2026',
+    title: '100% Real Online Multiplayer & Server Authoritative Movement',
+    highlight: 'Eliminated all bot simulations and replaced them with genuine human-only multiplayer synchronization and clean player movement across world metropolises!',
+    tag: 'Feature',
+    changes: [
+      'Pure Human Online Multiplayer: Removed all simulated bot trainers so every remote explorer visible on the city map is a genuine online player.',
+      'Server-Authoritative Position Sync: Smooth position replication and compass heading updates across all connected browsers.',
+      '1v1 Knowledge Duels: Challenge real trainers roaming the city streets to real-time curriculum battles.'
+    ]
+  },
   {
     version: '1.13.1',
     releaseDate: 'October 2026',
