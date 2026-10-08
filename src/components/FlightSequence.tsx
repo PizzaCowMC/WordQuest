@@ -197,7 +197,7 @@ export const FlightSequence: React.FC<FlightSequenceProps> = ({
                   </div>
                   <div>
                     <div className="text-xs font-black text-white uppercase tracking-wider">
-                      WordQuest Airlines Global Route
+                      Lexiroam Airlines Global Route
                     </div>
                     <div className="text-[10px] text-slate-400 font-mono">
                       Flight WQ-{cityIndex + 1}0 • Passenger: {student.name} • Aircraft: B787-9 Dreamliner

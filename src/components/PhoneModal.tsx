@@ -53,7 +53,9 @@ interface PhoneModalProps {
   onOpenFieldGuide?: () => void;
   onOpenSaveSystem?: () => void;
   onOpenDailyReward?: () => void;
+  onOpenDailyMissions?: () => void;
   onOpenUpdateLogs?: () => void;
+  onOpenMastery?: () => void;
   onClose: () => void;
   isMuted?: boolean;
   onToggleMute?: () => void;
@@ -76,7 +78,9 @@ export const PhoneModal: React.FC<PhoneModalProps> = ({
   onOpenFieldGuide,
   onOpenSaveSystem,
   onOpenDailyReward,
+  onOpenDailyMissions,
   onOpenUpdateLogs,
+  onOpenMastery,
   onClose,
   isMuted = false,
   onToggleMute,
@@ -86,23 +90,36 @@ export const PhoneModal: React.FC<PhoneModalProps> = ({
   const [activeApp, setActiveApp] = useState<PhoneApp>('home');
   const [dispatchStatus, setDispatchStatus] = useState<string | null>(null);
 
-  // Wardrobe temporary state
+  // Wardrobe temporary state with resilient defaults
+  const defaultAvatar = AVATAR_OPTIONS[0] || { id: 'av-default', avatar: '🧒', name: 'Leo', genderStyle: 'Explorer', title: 'World Voyager', accessory: 'Compass' };
+  const defaultColor = OUTFIT_COLORS[0] || { name: 'Electric Amber', hex: '#F59E0B', ring: '', badge: '' };
+  const defaultAccessory = ACCESSORY_OPTIONS[0] || { id: 'acc-default', name: 'Explorer Safari Hat', icon: '🤠' };
+
   const [selectedAvatar, setSelectedAvatar] = useState(
-    AVATAR_OPTIONS.find(a => a.avatar === student.appearance?.avatar) || AVATAR_OPTIONS[0]
+    (student?.appearance?.avatar ? AVATAR_OPTIONS.find(a => a.avatar === student.appearance.avatar) : null) || defaultAvatar
   );
   const [selectedColor, setSelectedColor] = useState(
-    OUTFIT_COLORS.find(c => c.hex === student.appearance?.outfitColor) || OUTFIT_COLORS[0]
+    (student?.appearance?.outfitColor ? OUTFIT_COLORS.find(c => c.hex === student.appearance.outfitColor) : null) || defaultColor
   );
   const [selectedAccessory, setSelectedAccessory] = useState(
-    ACCESSORY_OPTIONS.find(acc => acc.name === student.appearance?.accessory) || ACCESSORY_OPTIONS[0]
+    (student?.appearance?.accessory ? ACCESSORY_OPTIONS.find(acc => acc.name === student.appearance.accessory) : null) || defaultAccessory
   );
   const [wardrobeSaved, setWardrobeSaved] = useState(false);
 
   // Active vehicle info
-  const activeVehicleOption = VEHICLE_OPTIONS.find(v => v.type === student.activeVehicle) || VEHICLE_OPTIONS[0];
+  const activeVehicleOption = VEHICLE_OPTIONS.find(v => v.type === student?.activeVehicle) || VEHICLE_OPTIONS[0] || {
+    type: 'walk' as VehicleType,
+    name: 'Foot Patrol',
+    icon: '🚶',
+    badgeName: 'Walking',
+    speedMultiplier: 1.0,
+    cost: 'Free',
+    description: 'Walking pace',
+    spriteGlow: ''
+  };
 
   // Active weather data & countdown for Weather App
-  const activeWeatherInfo = WEATHER_DATA[weather] || WEATHER_DATA.sunny;
+  const activeWeatherInfo = (weather && WEATHER_DATA[weather]) ? WEATHER_DATA[weather] : WEATHER_DATA.sunny;
   const [countdownStr, setCountdownStr] = useState<string>('15:00');
 
   useEffect(() => {
@@ -141,11 +158,11 @@ export const PhoneModal: React.FC<PhoneModalProps> = ({
     soundEffects.playSelect();
     soundEffects.playCorrectHit();
     onUpdateAppearance({
-      avatar: selectedAvatar.avatar,
-      title: selectedAvatar.title,
-      outfitColor: selectedColor.hex,
-      accessory: selectedAccessory.name,
-      genderStyle: selectedAvatar.genderStyle
+      avatar: selectedAvatar?.avatar || '🧒',
+      title: selectedAvatar?.title || 'World Voyager',
+      outfitColor: selectedColor?.hex || '#F59E0B',
+      accessory: selectedAccessory?.name || 'Explorer Safari Hat',
+      genderStyle: selectedAvatar?.genderStyle || 'Explorer'
     });
     setWardrobeSaved(true);
     setTimeout(() => setWardrobeSaved(false), 2000);
@@ -164,7 +181,8 @@ export const PhoneModal: React.FC<PhoneModalProps> = ({
 
     if (student.coins < ticket.costCoins) {
       soundEffects.playWrong();
-      alert(`You need ${ticket.costCoins} coins to buy this pass. Defeat road monsters with English answers to earn coins!`);
+      setDispatchStatus(`Need ${ticket.costCoins} coins (you have ${student.coins}). Defeat monsters to earn coins!`);
+      setTimeout(() => setDispatchStatus(null), 3000);
       return;
     }
 
@@ -249,7 +267,7 @@ export const PhoneModal: React.FC<PhoneModalProps> = ({
                     </div>
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className="text-xl font-black text-white font-['Fredoka',sans-serif]">
-                        WordQuest OS
+                        Lexiroam OS
                       </span>
                       <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-sky-500/20 text-sky-300 border border-sky-400/30">
                         v{APP_VERSION}
@@ -433,7 +451,26 @@ export const PhoneModal: React.FC<PhoneModalProps> = ({
                     <span className="text-[9px] text-slate-400 -mt-1">Controls</span>
                   </button>
 
-                  {/* App 10: System Updates & Release Logs */}
+                  {/* App 10: Trainer XP & Mastery Charts */}
+                  <button
+                    id="phone-open-mastery-app-btn"
+                    onClick={() => {
+                      soundEffects.playSelect();
+                      if (onOpenMastery) {
+                        onClose();
+                        onOpenMastery();
+                      }
+                    }}
+                    className="flex flex-col items-center gap-1.5 p-2.5 rounded-2xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700 hover:border-amber-400 transition cursor-pointer group"
+                  >
+                    <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center text-2xl shadow group-hover:scale-110 transition">
+                      📊
+                    </div>
+                    <span className="text-xs font-bold text-slate-200">Progress</span>
+                    <span className="text-[9px] text-amber-300 font-mono -mt-1 font-semibold">Lv.{student.level} Charts</span>
+                  </button>
+
+                  {/* App 11: System Updates & Release Logs */}
                   <button
                     id="phone-open-updates-app-btn"
                     onClick={() => {
@@ -443,7 +480,7 @@ export const PhoneModal: React.FC<PhoneModalProps> = ({
                         onOpenUpdateLogs();
                       }
                     }}
-                    className="flex flex-col items-center gap-1.5 p-2.5 rounded-2xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700 hover:border-emerald-400 transition cursor-pointer group col-span-3 sm:col-span-1"
+                    className="flex flex-col items-center gap-1.5 p-2.5 rounded-2xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700 hover:border-emerald-400 transition cursor-pointer group"
                   >
                     <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center text-2xl shadow group-hover:scale-110 transition">
                       🚀
@@ -1134,7 +1171,32 @@ export const PhoneModal: React.FC<PhoneModalProps> = ({
                 </button>
               </div>
 
-              {/* Setting 3: Quick Tip */}
+              {/* Setting 3: Daily Educational Missions Shortcut */}
+              {onOpenDailyMissions && (
+                <div className="p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/40 flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-xs font-black text-amber-300 flex items-center gap-1.5">
+                      <span>🎯 Daily Missions</span>
+                      <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-400 text-slate-950 font-bold">XP & 🪙</span>
+                    </div>
+                    <div className="text-[10px] text-slate-300 mt-0.5">
+                      3 daily curriculum objectives for study bonus rewards
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      soundEffects.playSelect();
+                      onClose();
+                      onOpenDailyMissions();
+                    }}
+                    className="px-2.5 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs transition cursor-pointer shrink-0"
+                  >
+                    Open
+                  </button>
+                </div>
+              )}
+
+              {/* Setting 4: Quick Tip */}
               <div className="p-3 rounded-2xl bg-sky-950/40 border border-sky-800/40 text-[11px] text-sky-200 leading-relaxed">
                 💡 <strong>Radar Overlay</strong> can also be toggled from the top navigation bar or the map's <strong>Settings</strong> button.
               </div>

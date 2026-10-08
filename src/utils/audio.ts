@@ -4,17 +4,21 @@ let audioCtx: AudioContext | null = null;
 let soundEnabled = true;
 
 function getAudioContext(): AudioContext | null {
-  if (typeof window === 'undefined') return null;
-  if (!audioCtx) {
-    const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    if (AudioContextClass) {
-      audioCtx = new AudioContextClass();
+  try {
+    if (typeof window === 'undefined') return null;
+    if (!audioCtx) {
+      const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (AudioContextClass) {
+        audioCtx = new AudioContextClass();
+      }
     }
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume().catch(() => {});
+    }
+    return audioCtx;
+  } catch {
+    return null;
   }
-  if (audioCtx && audioCtx.state === 'suspended') {
-    audioCtx.resume();
-  }
-  return audioCtx;
 }
 
 export function isSoundEnabled(): boolean {
@@ -33,26 +37,28 @@ export function toggleSound(force?: boolean): boolean {
 export const soundEffects = {
   // Monster battle encounter start
   playEncounter: () => {
-    if (!soundEnabled) return;
-    const ctx = getAudioContext();
-    if (!ctx) return;
-    const now = ctx.currentTime;
+    try {
+      if (!soundEnabled) return;
+      const ctx = getAudioContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
 
-    // Classic fast sliding tone
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(150, now);
-    osc.frequency.exponentialRampToValueAtTime(880, now + 0.3);
-    osc.frequency.exponentialRampToValueAtTime(220, now + 0.6);
+      // Classic fast sliding tone
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(150, now);
+      osc.frequency.exponentialRampToValueAtTime(880, now + 0.3);
+      osc.frequency.exponentialRampToValueAtTime(220, now + 0.6);
 
-    gain.gain.setValueAtTime(0.15, now);
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+      gain.gain.setValueAtTime(0.15, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
 
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start(now);
-    osc.stop(now + 0.6);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.6);
+    } catch {}
   },
 
   // Correct answer / Super effective hit
@@ -280,74 +286,80 @@ export const soundEffects = {
 
   // Phone notification chime
   playPhoneRing: () => {
-    if (!soundEnabled) return;
-    const ctx = getAudioContext();
-    if (!ctx) return;
-    const now = ctx.currentTime;
+    try {
+      if (!soundEnabled) return;
+      const ctx = getAudioContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
 
-    [880, 1174, 1318].forEach((freq, idx) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, now + idx * 0.06);
+      [880, 1174, 1318].forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.06);
 
-      const st = now + idx * 0.06;
-      gain.gain.setValueAtTime(0.12, st);
-      gain.gain.exponentialRampToValueAtTime(0.001, st + 0.1);
+        const st = now + idx * 0.06;
+        gain.gain.setValueAtTime(0.12, st);
+        gain.gain.exponentialRampToValueAtTime(0.001, st + 0.1);
 
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(st);
-      osc.stop(st + 0.12);
-    });
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(st);
+        osc.stop(st + 0.12);
+      });
+    } catch {}
   },
 
   // Ticket purchase / coin chime
   playCashRegister: () => {
-    if (!soundEnabled) return;
-    const ctx = getAudioContext();
-    if (!ctx) return;
-    const now = ctx.currentTime;
+    try {
+      if (!soundEnabled) return;
+      const ctx = getAudioContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
 
-    [987, 1318].forEach((freq, idx) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+      [987, 1318].forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.08);
 
-      const st = now + idx * 0.08;
-      gain.gain.setValueAtTime(0.15, st);
-      gain.gain.exponentialRampToValueAtTime(0.001, st + 0.2);
+        const st = now + idx * 0.08;
+        gain.gain.setValueAtTime(0.15, st);
+        gain.gain.exponentialRampToValueAtTime(0.001, st + 0.2);
 
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(st);
-      osc.stop(st + 0.22);
-    });
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(st);
+        osc.stop(st + 0.22);
+      });
+    } catch {}
   },
 
   // Level up / save restore jingle
   playLevelUp: () => {
-    if (!soundEnabled) return;
-    const ctx = getAudioContext();
-    if (!ctx) return;
-    const now = ctx.currentTime;
+    try {
+      if (!soundEnabled) return;
+      const ctx = getAudioContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
 
-    [523.25, 659.25, 783.99, 1046.5].forEach((freq, idx) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+      [523.25, 659.25, 783.99, 1046.5].forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.08);
 
-      const st = now + idx * 0.08;
-      gain.gain.setValueAtTime(0.18, st);
-      gain.gain.exponentialRampToValueAtTime(0.001, st + 0.25);
+        const st = now + idx * 0.08;
+        gain.gain.setValueAtTime(0.18, st);
+        gain.gain.exponentialRampToValueAtTime(0.001, st + 0.25);
 
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(st);
-      osc.stop(st + 0.28);
-    });
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(st);
+        osc.stop(st + 0.28);
+      });
+    } catch {}
   },
 
   // Alias for victory fanfare

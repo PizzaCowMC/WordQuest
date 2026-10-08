@@ -53,7 +53,7 @@ export const UpdateLogsModal: React.FC<UpdateLogsModalProps> = ({ onClose }) => 
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-black text-white font-['Fredoka',sans-serif]">
-                  WordQuest Release Notes
+                  Lexiroam Release Notes
                 </h2>
                 <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono text-[10px] font-black border border-emerald-500/30">
                   v{APP_VERSION}

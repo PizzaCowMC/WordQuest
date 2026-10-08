@@ -24,7 +24,7 @@ const QUESTION_TEMPLATES = [
     category: 'grammar' as const,
     makeQuestion: (cityName: string) => ({
       questionText: `While exploring the historic streets of ${cityName}, the traveler _____ many friendly local residents.`,
-      hint: 'Irregular past tense of "meet": m-e-t',
+      hint: 'Germanic Class IV strong verb with dental consonant preterite ablaut.',
       options: ['met', 'meeted', 'meet', 'was met'],
       correctIndex: 0,
       explanation: 'The past tense of "meet" is the irregular form "met".',
@@ -35,7 +35,7 @@ const QUESTION_TEMPLATES = [
     category: 'vocabulary' as const,
     makeQuestion: (cityName: string) => ({
       questionText: `A detailed map or guide that helps travelers find their way through ${cityName} is called an _____.`,
-      hint: 'A plan of a journey or route: i-t-i-n-e-r-a-r-y',
+      hint: 'Late Latin "itinerarium", designating an organized schedule of travel waypoints.',
       options: ['itinerary', 'index', 'invoice', 'inventory'],
       correctIndex: 0,
       explanation: 'An "itinerary" is a planned route or journey schedule.',
@@ -57,7 +57,7 @@ const QUESTION_TEMPLATES = [
     category: 'spelling' as const,
     makeQuestion: (cityName: string) => ({
       questionText: `Which word is spelled correctly for an unforgettable experience exploring ${cityName}?`,
-      hint: 'A-d-v-e-n-t-u-r-e',
+      hint: 'Latin prefix "ad-" (towards) and "venire" (to come): features standard noun suffix "-ure"',
       options: ['adventure', 'adventur', 'adventcher', 'advenchure'],
       correctIndex: 0,
       explanation: '"Adventure" is spelled A-D-V-E-N-T-U-R-E.',
@@ -79,7 +79,7 @@ const QUESTION_TEMPLATES = [
     category: 'vocabulary' as const,
     makeQuestion: (cityName: string) => ({
       questionText: `A historic monument that honors an important person or event in ${cityName} is a _____.`,
-      hint: 'M-e-m-o-r-i-a-l',
+      hint: 'Etymologically derived from Latin "memorialis", preserving honor or remembrance',
       options: ['memorial', 'mineral', 'mammal', 'melody'],
       correctIndex: 0,
       explanation: 'A "memorial" is a monument or statue designed to preserve the memory of an event or person.',
@@ -643,7 +643,36 @@ const ADDITIONAL_METROS_INFO = [
   { id: 'nassau', name: 'Nassau', country: 'Bahamas', continent: 'North America', coords: [25.0479, -77.3554], code: 'NAS', airportName: 'Lynden Pindling International Airport' },
   { id: 'georgetownguyana', name: 'Georgetown', country: 'Guyana', continent: 'South America', coords: [6.8013, -58.1551], code: 'GEO', airportName: 'Cheddi Jagan International Airport' },
   { id: 'paramaribo', name: 'Paramaribo', country: 'Suriname', continent: 'South America', coords: [5.8520, -55.2038], code: 'PBM', airportName: 'Johan Adolf Pengel International Airport' },
-  { id: 'sucre', name: 'Sucre', country: 'Bolivia', continent: 'South America', coords: [-19.0196, -65.2620], code: 'SRE', airportName: 'Alcantarí International Airport' }
+  { id: 'sucre', name: 'Sucre', country: 'Bolivia', continent: 'South America', coords: [-19.0196, -65.2620], code: 'SRE', airportName: 'Alcantarí International Airport' },
+
+  // --- 9 NEW CITIES IN TAIWAN ---
+  { id: 'taichung', name: 'Taichung', country: 'Taiwan', continent: 'Asia', coords: [24.1477, 120.6736], code: 'RMQ', airportName: 'Taichung International Airport' },
+  { id: 'tainan', name: 'Tainan', country: 'Taiwan', continent: 'Asia', coords: [22.9997, 120.2270], code: 'TNN', airportName: 'Tainan Airport' },
+  { id: 'newtaipei', name: 'New Taipei City', country: 'Taiwan', continent: 'Asia', coords: [25.0123, 121.4657], code: 'NTP', airportName: 'New Taipei Express Airport Link' },
+  { id: 'taoyuan', name: 'Taoyuan', country: 'Taiwan', continent: 'Asia', coords: [24.9936, 121.3010], code: 'TYN', airportName: 'Taoyuan Aerotropolis Terminal' },
+  { id: 'hsinchu', name: 'Hsinchu', country: 'Taiwan', continent: 'Asia', coords: [24.8138, 120.9675], code: 'HSZ', airportName: 'Hsinchu Science Metro Airport' },
+  { id: 'keelung', name: 'Keelung', country: 'Taiwan', continent: 'Asia', coords: [25.1276, 121.7392], code: 'KEL', airportName: 'Keelung Harbor International Link' },
+  { id: 'chiayi', name: 'Chiayi', country: 'Taiwan', continent: 'Asia', coords: [23.4800, 120.4491], code: 'CYI', airportName: 'Chiayi Airport' },
+  { id: 'hualien', name: 'Hualien', country: 'Taiwan', continent: 'Asia', coords: [23.9871, 121.6015], code: 'HUN', airportName: 'Hualien International Airport' },
+  { id: 'yilan', name: 'Yilan', country: 'Taiwan', continent: 'Asia', coords: [24.7570, 121.7530], code: 'ILN', airportName: 'Yilan Valley Transit Hub' },
+
+  // --- 16 NEW WORLD METROPOLISES (HARDER ADVANCED C2 CURRICULUM) ---
+  { id: 'kyoto', name: 'Kyoto', country: 'Japan', continent: 'Asia', coords: [35.0116, 135.7681], code: 'UKY', airportName: 'Kansai-Kyoto Express Terminal' },
+  { id: 'fukuoka', name: 'Fukuoka', country: 'Japan', continent: 'Asia', coords: [33.5904, 130.4017], code: 'FUK', airportName: 'Fukuoka International Airport' },
+  { id: 'sapporo', name: 'Sapporo', country: 'Japan', continent: 'Asia', coords: [43.0618, 141.3545], code: 'CTS', airportName: 'New Chitose Airport' },
+  { id: 'daegu', name: 'Daegu', country: 'South Korea', continent: 'Asia', coords: [35.8714, 128.6014], code: 'TAE', airportName: 'Daegu International Airport' },
+  { id: 'genoa', name: 'Genoa', country: 'Italy', continent: 'Europe', coords: [44.4056, 8.9463], code: 'GOA', airportName: 'Genoa Cristoforo Colombo Airport' },
+  { id: 'valencia', name: 'Valencia', country: 'Spain', continent: 'Europe', coords: [39.4699, -0.3763], code: 'VLC', airportName: 'Valencia Airport' },
+  { id: 'seville', name: 'Seville', country: 'Spain', continent: 'Europe', coords: [37.3891, -5.9845], code: 'SVQ', airportName: 'Seville San Pablo Airport' },
+  { id: 'manchester', name: 'Manchester', country: 'United Kingdom', continent: 'Europe', coords: [53.4808, -2.2426], code: 'MAN', airportName: 'Manchester International Airport' },
+  { id: 'hamburg', name: 'Hamburg', country: 'Germany', continent: 'Europe', coords: [53.5511, 9.9937], code: 'HAM', airportName: 'Hamburg Airport Helmut Schmidt' },
+  { id: 'zurich', name: 'Zurich', country: 'Switzerland', continent: 'Europe', coords: [47.3769, 8.5417], code: 'ZRH', airportName: 'Zurich Airport' },
+  { id: 'lyon', name: 'Lyon', country: 'France', continent: 'Europe', coords: [45.7640, 4.8357], code: 'LYS', airportName: 'Lyon-Saint Exupéry Airport' },
+  { id: 'krakow', name: 'Krakow', country: 'Poland', continent: 'Europe', coords: [50.0647, 19.9450], code: 'KRK', airportName: 'Kraków John Paul II Airport' },
+  { id: 'auckland', name: 'Auckland', country: 'New Zealand', continent: 'Oceania', coords: [-36.8485, 174.7633], code: 'AKL', airportName: 'Auckland Airport' },
+  { id: 'brisbane', name: 'Brisbane', country: 'Australia', continent: 'Oceania', coords: [-27.4698, 153.0251], code: 'BNE', airportName: 'Brisbane International Airport' },
+  { id: 'calgary', name: 'Calgary', country: 'Canada', continent: 'North America', coords: [51.0447, -114.0719], code: 'YYC', airportName: 'Calgary International Airport' },
+  { id: 'geneva', name: 'Geneva', country: 'Switzerland', continent: 'Europe', coords: [46.2044, 6.1432], code: 'GVA', airportName: 'Geneva Cointrin Airport' }
 ];
 
 /**
@@ -774,13 +803,25 @@ export function getCity20Mobs(cityId: string, baseCity: CityData, cityName: stri
     usedSlotIndices.add(slotIdx);
     const slot = slots[slotIdx];
 
+    const isGrandmasterCity = cityIndex >= 150;
+    const isMasterCity = cityIndex >= 120;
+    const initialHp = slot.rarity === 'Legendary'
+      ? (isGrandmasterCity ? 6 : isMasterCity ? 5 : 4)
+      : (isGrandmasterCity ? 5 : isMasterCity ? 4 : (cityIndex >= 80 ? 4 : 3));
+    const initialLevel = isGrandmasterCity
+      ? Math.min(650, 200 + Math.floor((cityIndex - 150) * 14) + (idx * 10))
+      : isMasterCity
+      ? Math.min(420, 100 + Math.floor((cityIndex - 120) * 6) + (idx * 6))
+      : (m.level || 5);
+
     result.push({
       ...m,
+      level: initialLevel,
       position: slot.position,
       streetName: slot.streetName,
       rarity: slot.rarity,
-      hp: slot.rarity === 'Legendary' ? 4 : 3,
-      maxHp: slot.rarity === 'Legendary' ? 4 : 3
+      hp: initialHp,
+      maxHp: initialHp
     });
   });
 
@@ -794,13 +835,22 @@ export function getCity20Mobs(cityId: string, baseCity: CityData, cityName: stri
     const avatars = MOB_AVATARS[elem];
     const avatar = avatars[bIdx % avatars.length];
 
+    const isGrandmasterCity = cityIndex >= 150;
+    const isMasterCity = cityIndex >= 120;
+    const bldgLevel = isGrandmasterCity
+      ? Math.min(650, 220 + Math.floor((cityIndex - 150) * 15) + (bIdx * 8))
+      : isMasterCity
+      ? Math.min(450, 110 + Math.floor((cityIndex - 120) * 8) + (bIdx * 6))
+      : Math.min(180, 6 + cityIndex * 2 + bIdx);
+    const bldgHp = isGrandmasterCity ? 6 : isMasterCity ? 5 : 4;
+
     result.push({
       id: bldgMobId,
       name: `${bldg.name.split(' ')[0]} ${elem === 'Dragon' ? 'Drake' : elem === 'Psychic' ? 'Phantom' : 'Guardian'}`,
       type: elem,
-      level: Math.min(85, 6 + cityIndex * 2 + bIdx),
-      hp: 4,
-      maxHp: 4,
+      level: bldgLevel,
+      hp: bldgHp,
+      maxHp: bldgHp,
       position: [bldg.position[0] + 0.0008, bldg.position[1] + 0.0008],
       streetName: `Inside ${bldg.name}`,
       spriteColor: colors.sprite,
@@ -829,13 +879,22 @@ export function getCity20Mobs(cityId: string, baseCity: CityData, cityName: stri
     const prefix = mobPrefixes[(sIdx + cityIndex) % mobPrefixes.length];
     const suffix = mobSuffixes[(sIdx * 2 + cityIndex) % mobSuffixes.length];
 
+    const isGrandmasterCity = cityIndex >= 150;
+    const isMasterCity = cityIndex >= 120;
+    const mobHp = slot.rarity === 'Legendary' 
+      ? (isGrandmasterCity ? 6 : isMasterCity ? 5 : 4) 
+      : (isGrandmasterCity ? 5 : isMasterCity ? 4 : (cityIndex >= 80 ? 4 : 3));
+    const mobLevel = isGrandmasterCity
+      ? Math.min(650, 200 + Math.floor((cityIndex - 150) * 14) + (slot.tier * 8) + (sIdx % 7))
+      : Math.min(420, 5 + Math.floor(cityIndex * 2.2) + (slot.tier * 4) + (sIdx % 5));
+
     result.push({
       id: mobId,
       name: `${prefix}${suffix}`,
       type: elem,
-      level: Math.min(90, 4 + Math.floor(cityIndex * 1.4) + (slot.tier * 2) + (sIdx % 4)),
-      hp: slot.rarity === 'Legendary' ? 4 : 3,
-      maxHp: slot.rarity === 'Legendary' ? 4 : 3,
+      level: mobLevel,
+      hp: mobHp,
+      maxHp: mobHp,
       position: slot.position,
       streetName: slot.streetName,
       spriteColor: colors.sprite,
@@ -948,9 +1007,126 @@ export const ALL_150_CITIES: CityData[] = (() => {
     list.push(baseCity);
   });
 
-  // 2. Process Additional Metros (cities 37 to 150)
+  // Custom authentic landmarks database for key world metropolises & 9 Taiwan cities
+  const CUSTOM_CITY_LANDMARKS: Record<string, {
+    lesson: string;
+    rule: string;
+    buildings: Array<{ name: string; type: CityBuilding['type']; icon: string; fact: string }>;
+  }> = {
+    taichung: {
+      lesson: 'Lesson 151: Taichung Cultural Expressions & Creative Arts Grammar',
+      rule: 'Master creative artistic collocations, comparative discourse, and descriptive sensory adverbs.',
+      buildings: [
+        { name: 'National Taichung Theater', type: 'theater', icon: '🎭', fact: 'Futuristic organic sound-cave architecture designed by Toyo Ito without flat pillars.' },
+        { name: 'Fengjia Night Market Plaza', type: 'monument', icon: '🏮', fact: 'One of Taiwan’s largest and most innovative night markets with thousands of artisan culinary stalls.' },
+        { name: 'Rainbow Village Art Pavilion', type: 'museum', icon: '🌈', fact: 'Joyful historical village preserved and painted by military veteran Grandpa Rainbow.' }
+      ]
+    },
+    tainan: {
+      lesson: 'Lesson 152: Tainan 400-Year Heritage & Classical Historical Vocabulary',
+      rule: 'Learn classical historical vocabulary, narrative past continuous forms, and heritage preservation terms.',
+      buildings: [
+        { name: 'Chihkan Tower Fort Provintia', type: 'palace', icon: '🏯', fact: 'Built by Dutch navigators in 1653, standing as Taiwan’s ancient political and cultural heart.' },
+        { name: 'Anping Old Fort Zeelandia', type: 'castle', icon: '🧱', fact: 'Ancient Dutch maritime bastion dating back to 1624, commemorating 400 years of Tainan history.' },
+        { name: 'Tainan Confucius Grand Temple', type: 'monument', icon: '📜', fact: 'Founded in 1665 as the First Academy of Taiwan to cultivate classical Confucian ethics.' }
+      ]
+    },
+    newtaipei: {
+      lesson: 'Lesson 153: New Taipei Coastal Geography & Descriptive Adjectives',
+      rule: 'Master geological adjectives, topographical vocabulary, and vivid spatial prepositions.',
+      buildings: [
+        { name: 'Jiufen Lantern Old Street', type: 'monument', icon: '🏮', fact: 'Historic gold-mining hillside village renowned for glowing lanterns, tea houses, and cinematic vistas.' },
+        { name: 'Queen’s Head Yehliu GeoPark', type: 'monument', icon: '👑', fact: 'World-famous seaside hoodoo mushroom rock sculpted over millennia by Pacific wind and waves.' },
+        { name: 'Tamsui Fisherman’s Wharf', type: 'monument', icon: '🌉', fact: 'Romantic ocean estuary boardwalk and Lover’s Bridge celebrating maritime navigation.' }
+      ]
+    },
+    taoyuan: {
+      lesson: 'Lesson 154: Taoyuan Aviation & International Transit English',
+      rule: 'Practice airport logistics vocabulary, formal travel idioms, and conditional schedules.',
+      buildings: [
+        { name: 'Taoyuan Aerotropolis Skyway', type: 'tower', icon: '🛫', fact: 'Taiwan’s primary international aviation gateway connecting passengers across six continents.' },
+        { name: 'Daxi Baroque Old Street', type: 'monument', icon: '🏛️', fact: 'Celebrated for Qing dynasty camphor commerce and ornate Baroque-style carved stone facades.' },
+        { name: 'Shimen Scenic Reservoir', type: 'monument', icon: '🌊', fact: 'Vital water resource providing drinking water and hydroelectric power to northern Taiwan.' }
+      ]
+    },
+    hsinchu: {
+      lesson: 'Lesson 155: Hsinchu Technology & Scientific Terminology Mastery',
+      rule: 'Acquire high-tech terminology, scientific precision, and analytical discourse markers.',
+      buildings: [
+        { name: 'Hsinchu Science Park Silicon Hub', type: 'observatory', icon: '🔬', fact: 'The Silicon Shield of the modern digital age, manufacturing over 60% of the world’s advanced microchips.' },
+        { name: 'East Gate Yingxi Historic Plaza', type: 'monument', icon: '🏯', fact: 'The sole remaining 1829 Qing dynasty stone bastion gate defending the windy city of Hsinchu.' },
+        { name: 'Hsinchu Chenghuang Temple', type: 'monument', icon: '🏮', fact: 'Highest-ranking City God Temple in Taiwan, encircled by famous traditional culinary noodle stalls.' }
+      ]
+    },
+    keelung: {
+      lesson: 'Lesson 156: Keelung Maritime Trade & Ocean Idioms',
+      rule: 'Explore maritime idioms, shipping trade expressions, and dynamic sensory descriptions.',
+      buildings: [
+        { name: 'Keelung Miaokou Night Market', type: 'monument', icon: '🏮', fact: 'Historic harbor food market centering around Dianji Temple, famous for freshly caught seafood.' },
+        { name: 'Heping Island Coastal GeoPark', type: 'monument', icon: '🌊', fact: 'Spectacular marine erosion sea trenches and tofu rocks explored by Spanish mariners in 1626.' },
+        { name: 'Keelung Maritime Harbor Terminal', type: 'tower', icon: '🚢', fact: 'Historic deep-water harbor terminal receiving luxury international ocean liners and cargo fleets.' }
+      ]
+    },
+    chiayi: {
+      lesson: 'Lesson 157: Chiayi Mountain Ecology & Forest Conservation Vocab',
+      rule: 'Master botanical vocabulary, ecological conservation terminology, and narrative sequence adverbs.',
+      buildings: [
+        { name: 'Alishan Forest Railway Terminal', type: 'monument', icon: '🌲', fact: 'Iconic zigzag narrow-gauge alpine railway built in 1912 ascending through four ecological climate zones.' },
+        { name: 'Hinoki Cypress Cultural Village', type: 'museum', icon: '🪵', fact: 'Taiwan’s largest preserved Japanese cypress forestry dorm cluster with traditional craftsmanship.' },
+        { name: 'Chiayi Sun-Shooting Tower', type: 'tower', icon: '🏹', fact: 'Monumental 62-meter aluminum tower inspired by Indigenous myths overlooking the Chiayi plain.' }
+      ]
+    },
+    hualien: {
+      lesson: 'Lesson 158: Hualien Geological Wonders & Marble Gorge Linguistics',
+      rule: 'Learn geological terminology, natural wonder descriptions, and emphatic inversion structures.',
+      buildings: [
+        { name: 'Taroko Gorge Marble Gateway', type: 'monument', icon: '⛰️', fact: 'Towering marble precipices and rushing turquoise Liwu River, an East Asian geological marvel.' },
+        { name: 'Qixingtan Crescent Bay', type: 'monument', icon: '🌊', fact: 'Sweeping pebble stone coastline on the Pacific Ocean renowned for unobstructed sunrise horizons.' },
+        { name: 'Pine Garden Heritage Estate', type: 'museum', icon: '🌲', fact: 'Historic Pacific-facing pine grove military retreat from 1943, now an arts and poetry sanctuary.' }
+      ]
+    },
+    yilan: {
+      lesson: 'Lesson 159: Yilan Eco-Tourism & Agricultural Sustainability English',
+      rule: 'Study agricultural and sustainable tourism terminology, modal verbs of recommendation, and ecology.',
+      buildings: [
+        { name: 'Lanyang Slanted Architecture Museum', type: 'museum', icon: '🏛️', fact: 'Striking cuesta-shaped structure integrating seamlessly with coastal wetland ecology.' },
+        { name: 'Jiaoxi Natural Hot Springs', type: 'monument', icon: '♨️', fact: 'Pristine mineral-rich alkaline thermal springs soothing travelers with therapeutic foot baths.' },
+        { name: 'Luodong Forestry Heritage Park', type: 'museum', icon: '🪵', fact: 'Historic timber log storage pond and vintage steam engines preserving mountain logging lore.' }
+      ]
+    },
+    kyoto: {
+      lesson: 'Lesson 160: Kyoto Classical Architecture & Traditional Cultural Etymology',
+      rule: 'Master classical vocabulary, cultural etymology, and complex respectful register.',
+      buildings: [
+        { name: 'Fushimi Inari Grand Shrine', type: 'monument', icon: '⛩️', fact: 'Famous mountain pilgrimage route winding through over 10,000 crimson torii gates.' },
+        { name: 'Kinkaku-ji Golden Pavilion', type: 'palace', icon: '🏯', fact: 'Zen Buddhist temple covered in pure gold leaf reflecting onto the sacred Mirror Pond.' },
+        { name: 'Kiyomizu-dera Cliff Terrace', type: 'monument', icon: '🏮', fact: 'Ancient wooden temple terrace built without a single nail overlooking Kyoto maple groves.' }
+      ]
+    },
+    sapporo: {
+      lesson: 'Lesson 161: Sapporo Alpine Climate & Winter Meteorological Terms',
+      rule: 'Understand meteorological terms, winter sports vocabulary, and seasonal idioms.',
+      buildings: [
+        { name: 'Odori Clock Tower Historic Hall', type: 'tower', icon: '🕰️', fact: 'Symbol of Sapporo agricultural university pioneering American frontier architecture in 1878.' },
+        { name: 'Sapporo TV Tower & Park', type: 'tower', icon: '🗼', fact: 'Centerpiece of Odori Park hosting the internationally renowned Sapporo Snow Festival.' },
+        { name: 'Mount Moiwa Peak Observatory', type: 'observatory', icon: '🚠', fact: 'Offers breathtaking night views of Hokkaido’s snowy capital illuminated under starry skies.' }
+      ]
+    },
+    geneva: {
+      lesson: 'Lesson 175: Geneva International Diplomacy & Multilateral Treaty English',
+      rule: 'Master formal diplomatic discourse, multilateral treaty syntax, and formal subjunctive clauses.',
+      buildings: [
+        { name: 'Jet d’Eau Grand Fountain', type: 'monument', icon: '⛲', fact: 'Monumental 140-meter water plume pumping 500 liters per second into Lake Geneva sky.' },
+        { name: 'Palais des Nations Diplomacy Hall', type: 'palace', icon: '🏛️', fact: 'Global headquarters for human rights and international diplomacy hosting UN assemblies.' },
+        { name: 'Saint Peter’s Cathedral Tower', type: 'cathedral', icon: '⛪', fact: 'Historic Protestant Reformation church where John Calvin preached during the 16th century.' }
+      ]
+    }
+  };
+
+  // 2. Process Additional Metros (cities 37 to 175)
   ADDITIONAL_METROS_INFO.forEach((meta, aIdx) => {
     const cityIndex = 36 + aIdx;
+    const custom = CUSTOM_CITY_LANDMARKS[meta.id];
     const airport: CityAirport = {
       id: `${meta.id}-airport`,
       name: meta.airportName,
@@ -959,7 +1135,24 @@ export const ALL_150_CITIES: CityData[] = (() => {
       terminalDescription: `International Departure Concourse for ${meta.airportName} (${meta.code})`
     };
 
-    const buildings: CityBuilding[] = [
+    const buildings: CityBuilding[] = custom ? custom.buildings.map((b, bIdx) => {
+      const offsets = [
+        [0.045, 0.040],
+        [-0.055, -0.050],
+        [0.040, -0.065]
+      ];
+      const off = offsets[bIdx % offsets.length];
+      return {
+        id: `${meta.id}-bldg-${bIdx + 1}`,
+        name: b.name,
+        type: b.type,
+        position: [meta.coords[0] + off[0], meta.coords[1] + off[1]],
+        icon: b.icon,
+        description: `Famous landmark in ${meta.name}, ${meta.country}.`,
+        historicalFact: b.fact,
+        hiddenMonsterIds: [`${meta.id}-bldg-${bIdx + 1}`]
+      };
+    }) : [
       {
         id: `${meta.id}-bldg-1`,
         name: `${meta.name} Grand Historic Museum`,
@@ -992,6 +1185,7 @@ export const ALL_150_CITIES: CityData[] = (() => {
       }
     ];
 
+    const totalMetrosCount = 36 + ADDITIONAL_METROS_INFO.length;
     const baseCity: CityData = {
       id: meta.id,
       name: meta.name,
@@ -999,9 +1193,9 @@ export const ALL_150_CITIES: CityData[] = (() => {
       continent: meta.continent,
       coordinates: [meta.coords[0], meta.coords[1]] as [number, number],
       zoom: 13,
-      lessonTitle: `Lesson ${cityIndex + 1}: ${meta.name} Global English Exploration`,
-      lessonGrammarRule: 'Master contextual grammar, sophisticated travel vocabulary, and reading idioms.',
-      welcomeMessage: `Welcome to ${meta.name} (City ${cityIndex + 1}/150)! Explore famous monuments, physical airport concourses, and 20 roaming road monsters!`,
+      lessonTitle: custom?.lesson || `Lesson ${cityIndex + 1}: ${meta.name} Global English Exploration`,
+      lessonGrammarRule: custom?.rule || 'Master contextual grammar, sophisticated travel vocabulary, and reading idioms.',
+      welcomeMessage: `Welcome to ${meta.name} (City ${cityIndex + 1}/${totalMetrosCount})! Explore famous monuments, physical airport concourses, and 20 roaming road monsters!`,
       landmarks: buildings.map(b => b.name),
       stations: [
         {

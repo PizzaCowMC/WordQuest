@@ -18,16 +18,19 @@ import { UpdateLogsModal } from './components/UpdateLogsModal';
 import { BuildingModal } from './components/BuildingModal';
 import { AirportTerminalModal } from './components/AirportTerminalModal';
 import { DailyMissionsModal } from './components/DailyMissionsModal';
+import { TrainerMasteryModal } from './components/TrainerMasteryModal';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { updateMissionProgress } from './utils/dailyMissions';
 import { useMultiplayer } from './hooks/useMultiplayer';
 import { toggleSound, isSoundEnabled, soundEffects } from './utils/audio';
 import { getRandomWeatherForTimestamp } from './utils/weatherUtils';
 import { getRandomDuelQuestion } from './utils/questionUtils';
 import { getLevelFromXp } from './utils/levelUtils';
+import { getRandomCitySpot, RandomSpotResult } from './utils/randomSpotUtils';
 import { FINAL_BOSS_MONSTER } from './data/finalBoss';
 import { getFinalBossQuestions } from './data/masterQuestionBank';
 
-const STORAGE_KEY = 'wordquest_student_profile';
+const STORAGE_KEY = 'lexiroam_student_profile';
 
 export default function App() {
   const [allCities] = useState<CityData[]>(ALL_150_CITIES);
@@ -35,7 +38,7 @@ export default function App() {
 
   const [student, setStudent] = useState<StudentProfile | null>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('wordquest_saved_profile');
+      const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('lexiroam_saved_profile');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed) {
@@ -60,7 +63,7 @@ export default function App() {
   // Temperature unit preference (°C default, toggleable to °F in settings and phone)
   const [tempUnit, setTempUnit] = useState<'C' | 'F'>(() => {
     try {
-      const saved = localStorage.getItem('wordquest_temp_unit');
+      const saved = localStorage.getItem('lexiroam_temp_unit');
       if (saved === 'C' || saved === 'F') return saved;
       return student?.tempUnit || 'C';
     } catch {
@@ -71,7 +74,7 @@ export default function App() {
   const handleToggleTempUnit = (unit: 'C' | 'F') => {
     setTempUnit(unit);
     try {
-      localStorage.setItem('wordquest_temp_unit', unit);
+      localStorage.setItem('lexiroam_temp_unit', unit);
     } catch {
       // ignore
     }
@@ -92,6 +95,7 @@ export default function App() {
   }, []);
 
   const [activeBattleMonster, setActiveBattleMonster] = useState<Monster | null>(null);
+  const [runAwayTarget, setRunAwayTarget] = useState<RandomSpotResult | null>(null);
   const [showFlightModal, setShowFlightModal] = useState<boolean>(false);
   const [showFieldGuideModal, setShowFieldGuideModal] = useState<boolean>(false);
   const [showTransitModal, setShowTransitModal] = useState<boolean>(false);
@@ -106,12 +110,13 @@ export default function App() {
   const [fastTravelTarget, setFastTravelTarget] = useState<TransitStation | null>(null);
   const [showResetModal, setShowResetModal] = useState<boolean>(false);
   const [showUpdateLogsModal, setShowUpdateLogsModal] = useState<boolean>(false);
+  const [showMasteryModal, setShowMasteryModal] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(!isSoundEnabled());
   
   // Real-time Mini-Map HUD state (Off by default as requested by user)
   const [showMiniMap, setShowMiniMap] = useState<boolean>(() => {
     try {
-      const saved = localStorage.getItem('wordquest_minimap_enabled');
+      const saved = localStorage.getItem('lexiroam_minimap_enabled');
       return saved !== null ? saved === 'true' : false; // Default: false (OFF)
     } catch {
       return false;
@@ -122,7 +127,7 @@ export default function App() {
     setShowMiniMap(prev => {
       const next = !prev;
       try {
-        localStorage.setItem('wordquest_minimap_enabled', String(next));
+        localStorage.setItem('lexiroam_minimap_enabled', String(next));
       } catch {
         // ignore
       }
@@ -245,7 +250,7 @@ export default function App() {
   const handleConfirmReset = () => {
     try {
       localStorage.removeItem(STORAGE_KEY);
-      localStorage.removeItem('wordquest_saved_profile');
+      localStorage.removeItem('lexiroam_saved_profile');
     } catch {
       // ignore
     }
@@ -422,7 +427,8 @@ export default function App() {
   };
 
   return (
-    <main className="relative w-full h-screen overflow-hidden bg-slate-950 font-['Outfit',sans-serif]">
+    <ErrorBoundary fallbackTitle="Lexiroam Adventure Preserved!">
+      <main className="relative w-full h-screen overflow-hidden bg-slate-950 font-['Outfit',sans-serif]">
       
       {/* 1. TRAINER SETUP MODAL (If student hasn't entered name yet or after Reset) */}
       {!student && (
@@ -443,6 +449,7 @@ export default function App() {
           student={student}
           activeMonster={activeBattleMonster}
           fastTravelTarget={fastTravelTarget}
+          runAwayTarget={runAwayTarget}
           onSelectMonster={handleSelectMonster}
           onOpenFieldGuide={() => setShowFieldGuideModal(true)}
           onOpenFlight={() => setShowFlightModal(true)}
@@ -463,9 +470,22 @@ export default function App() {
           onSendMovement={multiplayer.sendMovement}
           onSelectRemotePlayer={(player) => setSelectedRemotePlayer(player)}
           onOpenUpdateLogs={() => setShowUpdateLogsModal(true)}
+          onOpenMastery={() => setShowMasteryModal(true)}
           onOpenBuilding={(building) => setSelectedBuilding(building)}
           onOpenAirport={() => setShowAirportModal(true)}
           onOpenDailyMissions={() => setShowDailyMissionsModal(true)}
+          onRewardClaimed={(earnedXp, earnedCoins) => {
+            setStudent(prev => {
+              if (!prev) return null;
+              const newXp = prev.xp + earnedXp;
+              return {
+                ...prev,
+                xp: newXp,
+                coins: prev.coins + earnedCoins,
+                level: Math.max(prev.level, getLevelFromXp(newXp)),
+              };
+            });
+          }}
         />
       )}
 
@@ -476,6 +496,11 @@ export default function App() {
           student={student}
           onVictory={handleBattleVictory}
           onClose={() => setActiveBattleMonster(null)}
+          onRunAway={() => {
+            // Fresh object each time so the map re-triggers the escape
+            setRunAwayTarget({ ...getRandomCitySpot(currentCity) });
+            setActiveBattleMonster(null);
+          }}
         />
       )}
 
@@ -591,9 +616,26 @@ export default function App() {
           onToggleMute={handleToggleMute}
           showMiniMap={showMiniMap}
           onToggleMiniMap={handleToggleMiniMap}
+          onFastTravelToStation={handleFastTravelToStation}
+          onOpenMastery={() => {
+            setShowPhoneModal(false);
+            setShowMasteryModal(true);
+          }}
           onOpenUpdateLogs={() => {
             setShowPhoneModal(false);
             setShowUpdateLogsModal(true);
+          }}
+        />
+      )}
+
+      {/* TRAINER MASTERY & XP ANALYTICS DASHBOARD MODAL */}
+      {showMasteryModal && student && (
+        <TrainerMasteryModal
+          student={student}
+          onClose={() => setShowMasteryModal(false)}
+          onOpenDailyMissions={() => {
+            setShowMasteryModal(false);
+            setShowDailyMissionsModal(true);
           }}
         />
       )}
@@ -678,6 +720,7 @@ export default function App() {
           onClose={() => setShowUpdateLogsModal(false)}
         />
       )}
-    </main>
+      </main>
+    </ErrorBoundary>
   );
 }

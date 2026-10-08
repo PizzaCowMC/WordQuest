@@ -776,7 +776,7 @@ async function startServer() {
   }
 
   server.listen(PORT, () => {
-    console.log(`WordQuest Multiplayer Server running on port ${PORT} [${isProduction ? 'production' : 'development'}]`);
+    console.log(`Lexiroam Multiplayer Server running on port ${PORT} [${isProduction ? 'production' : 'development'}]`);
   });
 }
 

@@ -7,9 +7,38 @@ export interface UpdateLogEntry {
   changes: string[];
 }
 
-export const APP_VERSION = '26.4.0';
+export const APP_VERSION = '26.5.1';
 
 export const UPDATE_LOGS: UpdateLogEntry[] = [
+  {
+    version: '26.5.1',
+    releaseDate: 'October 2026',
+    title: '25 New World Metropolises (9 in Taiwan), Moving Monsters, Settings Daily Missions & Pretty UI',
+    highlight: 'Added 25 new expansive cities with 9 handcrafted Taiwanese metropolises, brought wild street monsters to life with continuous autonomous movement & facing orientation, seamlessly embedded Daily Missions right into the Settings tab with live reward claiming, added an "X" dismiss button on the controls guide banner with settings toggle, increased challenge with harder C2 and typing trials, and beautified all HUD and floating dock buttons!',
+    tag: 'Major',
+    changes: [
+      '25 New World Metropolises Added (Total 175 Cities): Expanded the global tour from 150 to 175 metropolises, including 9 iconic Taiwanese cities (Taichung, Tainan, New Taipei City, Taoyuan, Hsinchu, Keelung, Chiayi, Hualien, Yilan) plus 16 global hubs (Kyoto, Sapporo, Fukuoka, Daegu, Genoa, Valencia, Seville, Manchester, Hamburg, Zurich, Lyon, Krakow, Auckland, Brisbane, Calgary, Geneva) with authentic landmarks and custom curricula.',
+      'Harder and Harder Progressive Difficulty: Monsters in high-tier metropolises scale up to Lv. 650 with 5 to 6 HP (Legendaries 6 to 7 HP) and demanding 50/50 splits of keyboard typing challenges and extreme C2/GRE linguistics questions (negative inversions, mandative subjunctives, rhetorical devices).',
+      'Living Autonomous Moving Monsters: Wild road monsters now actively patrol and roam the streets with smooth continuous physics, changing waypoints every few seconds, dynamically flipping orientation to face their walking direction, and triggering battles on player encounter.',
+      'Closable Controls Tips with "X" Button: The floating controls guide card in the lower-left corner now features an instant "X" dismiss button with persistent memory, along with a quick "?" toggle button on the floating dock and a switch in the Settings menu.',
+      'Daily Missions Integrated Inside Settings Tab: Transformed the Settings modal into an organized tabbed dashboard with "General Settings" and "Daily Missions". Trainers can track daily step counts, monster victories, and transit rides, and claim XP and coin payouts with celebratory confetti right in Settings.',
+      'Pretty & Organized Buttons: Redesigned the top HUD into clean semantic clusters (Trainer status & location, transit & boss portals, smartphone & settings) and organized the floating map dock into three frosted glass utility modules.'
+    ]
+  },
+  {
+    version: '26.5.0',
+    releaseDate: 'October 2026',
+    title: 'Trainer Mastery & XP Charts Dashboard, Phone Stability & Harder Hints',
+    highlight: 'Introduced the comprehensive Trainer Mastery & XP Analytics Dashboard with interactive SVG charts, full multi-tier XP progress bar, fixed smartphone audio crashes, and eradicated all ~-~-~-~ letter-by-letter giveaway hints in favor of rigorous linguistic etymological clues!',
+    tag: 'Major',
+    changes: [
+      'Real Real Real Progress Bar & XP Dashboard: Launched full-featured Trainer Mastery modal accessible via the top XP bar and smartphone with exact numerical XP counters, percentage meters, and streak bonus multipliers.',
+      'Interactive Mastery & Progression Charts: Built 4 custom SVG data visualizations including Curriculum Category Mastery Bar Chart, Level 1 to 1000 Exponential Trajectory Curve Chart with live player node pinpointer, 7-Day Weekly Study Activity Chart, and Level 1000 Milestone Unlocks Roadmap.',
+      'Fixed Smartphone Audio & Lifecycle Crash: Safeguarded Web Audio synthesizer routines and AudioContext state transitions against browser restrictions, added global ErrorBoundary recovery, and made smartphone wardrobe and transit apps resilient to prevent app crashes.',
+      'Removed All ~-~-~-~ Letter-Spelled Hints: Stripped all ~-~-~-~ letter-by-letter hyphenated hints (such as m-e-t, s-o-u-g-h-t, M-u-s-e-u-m, and P-y-r-a-m-i-d) that gave away exact answers without cognitive deduction.',
+      'Harder Analytical Clues: Upgraded clue engine with deep pedagogical hints focused on Latin and Greek root stems, Germanic ablaut vowel shifts, dental preterite patterns, morphological affixes, and semantic domains.'
+    ]
+  },
   {
     version: '26.4.0',
     releaseDate: 'October 2026',
@@ -243,7 +272,7 @@ export const UPDATE_LOGS: UpdateLogEntry[] = [
   {
     version: '1.0.0',
     releaseDate: 'November 2025',
-    title: 'Initial Release: WordQuest Street Adventure',
+    title: 'Initial Release: Lexiroam Street Adventure',
     highlight: 'Real-world street map English learning adventure.',
     tag: 'Major',
     changes: [

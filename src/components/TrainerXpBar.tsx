@@ -7,13 +7,15 @@ interface TrainerXpBarProps {
   level: number;
   avatarIcon?: string;
   name?: string;
+  onOpenMastery?: () => void;
 }
 
 export const TrainerXpBar: React.FC<TrainerXpBarProps> = ({
   xp,
   level,
   avatarIcon = '👦',
-  name = 'Trainer'
+  name = 'Trainer',
+  onOpenMastery
 }) => {
   const [showTooltip, setShowTooltip] = useState(false);
   const progress = getXpProgress(xp);
@@ -28,16 +30,25 @@ export const TrainerXpBar: React.FC<TrainerXpBarProps> = ({
     return 'from-sky-500 to-blue-600 text-white';
   };
 
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onOpenMastery) {
+      onOpenMastery();
+    } else {
+      setShowTooltip(!showTooltip);
+    }
+  };
+
   return (
     <div 
-      className="relative pointer-events-auto flex items-center gap-2 bg-slate-900/95 backdrop-blur-md border border-slate-700/80 rounded-2xl px-2.5 py-1.5 shadow-xl hover:border-sky-400/60 transition cursor-pointer"
+      className="relative pointer-events-auto flex items-center gap-2 bg-slate-900/95 backdrop-blur-md border border-slate-700/80 rounded-2xl px-2.5 py-1.5 shadow-xl hover:border-sky-400/60 hover:shadow-sky-500/20 transition cursor-pointer group"
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
-      onClick={() => setShowTooltip(!showTooltip)}
-      title="Trainer Level & XP Progress Bar (Scale to Lv. 1000!)"
+      onClick={handleClick}
+      title="Tap to open Trainer Mastery & XP Analytics Dashboard with Charts!"
     >
       {/* Level Badge */}
-      <div className={`relative px-2 py-0.5 rounded-xl bg-gradient-to-r ${getBadgeStyle()} flex items-center gap-1 shadow-md shrink-0`}>
+      <div className={`relative px-2 py-0.5 rounded-xl bg-gradient-to-r ${getBadgeStyle()} flex items-center gap-1 shadow-md shrink-0 group-hover:scale-105 transition`}>
         <span className="text-xs font-black font-mono tracking-tight">
           Lv.{level}
         </span>
@@ -49,10 +60,10 @@ export const TrainerXpBar: React.FC<TrainerXpBarProps> = ({
       {/* Progress Bar & Numerical Counter */}
       <div className="flex flex-col min-w-[110px] sm:min-w-[140px] max-w-[160px]">
         <div className="flex items-center justify-between text-[10px] font-bold text-slate-300 leading-none mb-1">
-          <span className="truncate max-w-[75px] text-sky-300 font-extrabold">
-            {name}
+          <span className="truncate max-w-[75px] text-sky-300 font-extrabold flex items-center gap-1">
+            <span>{name}</span>
           </span>
-          <span className="font-mono text-slate-400">
+          <span className="font-mono text-slate-400 group-hover:text-amber-300 transition">
             {level >= MAX_LEVEL ? 'MAX' : `${progress.percent}%`}
           </span>
         </div>
@@ -64,6 +75,10 @@ export const TrainerXpBar: React.FC<TrainerXpBarProps> = ({
             style={{ width: `${progress.percent}%` }}
           />
         </div>
+      </div>
+
+      <div className="hidden sm:flex items-center text-[10px] font-bold text-amber-300 bg-amber-500/10 border border-amber-500/30 px-1.5 py-0.5 rounded-lg shrink-0">
+        📊 Charts
       </div>
 
       {/* Hover / Click Tooltip Details */}

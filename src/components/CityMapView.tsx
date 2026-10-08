@@ -33,8 +33,12 @@ import {
   Building2,
   Sparkles,
   Maximize2,
-  Crown
+  Crown,
+  X,
+  Footprints
 } from 'lucide-react';
+import { getRandomCitySpot, RandomSpotResult } from '../utils/randomSpotUtils';
+import { getDailyMissions } from '../utils/dailyMissions';
 import { CityMiniMapOverlay } from './CityMiniMapOverlay';
 import { VirtualJoystick } from './VirtualJoystick';
 import { SettingsModal } from './SettingsModal';
@@ -66,6 +70,7 @@ interface CityMapViewProps {
   showMiniMap?: boolean;
   onToggleMiniMap?: () => void;
   fastTravelTarget?: TransitStation | null;
+  runAwayTarget?: RandomSpotResult | null;
   currentWeather?: WeatherCondition;
   tempUnit?: 'C' | 'F';
   onToggleTempUnit?: (unit: 'C' | 'F') => void;
@@ -73,9 +78,11 @@ interface CityMapViewProps {
   onSendMovement?: (pos: { lat: number; lng: number }, facing: 'left' | 'right' | 'up' | 'down', vehicle: VehicleType) => void;
   onSelectRemotePlayer?: (player: MultiplayerPlayer) => void;
   onOpenUpdateLogs?: () => void;
+  onOpenMastery?: () => void;
   onOpenBuilding?: (building: CityBuilding) => void;
   onOpenAirport?: () => void;
   onOpenDailyMissions?: () => void;
+  onRewardClaimed?: (xp: number, coins: number) => void;
 }
 
 // Generate animated SVG elemental mob model
@@ -246,6 +253,7 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
   showMiniMap: propShowMiniMap,
   onToggleMiniMap: propOnToggleMiniMap,
   fastTravelTarget,
+  runAwayTarget,
   currentWeather: propWeather,
   tempUnit = 'C',
   onToggleTempUnit,
@@ -253,9 +261,11 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
   onSendMovement,
   onSelectRemotePlayer,
   onOpenUpdateLogs,
+  onOpenMastery,
   onOpenBuilding,
   onOpenAirport,
   onOpenDailyMissions,
+  onRewardClaimed,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -269,6 +279,39 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
   // Check if daily reward has been claimed today
   const todayStr = new Date().toLocaleDateString('en-CA');
   const isDailyRewardClaimed = student.lastDailyRewardDate === todayStr;
+
+  // Closable Controls Tips banner state (persisted in localStorage)
+  const [showControlsTips, setShowControlsTips] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('wq_hide_controls_tips') !== 'true';
+    } catch {
+      return true;
+    }
+  });
+
+  // Settings modal active tab ('settings' | 'missions')
+  const [settingsTab, setSettingsTab] = useState<'settings' | 'missions'>('settings');
+
+  // Track if any daily missions are ready to be claimed
+  const [hasUnclaimedMissions, setHasUnclaimedMissions] = useState<boolean>(() => {
+    try {
+      const state = getDailyMissions();
+      return state.missions.some(m => m.completed && !m.claimed);
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    const handleMissionUpdate = () => {
+      try {
+        const state = getDailyMissions();
+        setHasUnclaimedMissions(state.missions.some(m => m.completed && !m.claimed));
+      } catch {}
+    };
+    window.addEventListener('lexiroam_missions_updated', handleMissionUpdate);
+    return () => window.removeEventListener('lexiroam_missions_updated', handleMissionUpdate);
+  }, []);
 
   // Player coordinates in the current city
   const [playerPosition, setPlayerPosition] = useState<[number, number]>(currentCity.coordinates);
@@ -293,6 +336,7 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
     targetLat: number;
     targetLng: number;
     isFacingLeft: boolean;
+    speed: number;
     nextWanderTime: number;
   }>>(new Map());
 
@@ -303,7 +347,7 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
     setPlayerPosition(currentCity.coordinates);
 
     mobSimRef.current.clear();
-    currentCity.monsters.forEach(m => {
+    currentCity.monsters.forEach((m, idx) => {
       mobSimRef.current.set(m.id, {
         lat: m.position[0],
         lng: m.position[1],
@@ -312,7 +356,8 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
         targetLat: m.position[0],
         targetLng: m.position[1],
         isFacingLeft: false,
-        nextWanderTime: Date.now() + 1000 + Math.random() * 3000
+        speed: 0.00030 + ((idx % 4) * 0.00006),
+        nextWanderTime: Date.now() + 400 + Math.random() * 2000
       });
     });
   }, [currentCity.id]);
@@ -328,6 +373,58 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
       }
     }
   }, [fastTravelTarget]);
+
+  // Run Away State & Handler (Sprints to a random spot across the metropolis)
+  const [runAwayNotification, setRunAwayNotification] = useState<string | null>(null);
+
+  const handleRunAwayToRandomSpot = () => {
+    soundEffects.playSelect();
+    const spot = getRandomCitySpot(currentCity, playerPosRef.current);
+    playerPosRef.current = spot.position;
+    velRef.current = { x: 0, y: 0 };
+    setPlayerPosition(spot.position);
+    if (playerMarkerRef.current) {
+      playerMarkerRef.current.setLatLng(spot.position);
+    }
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.flyTo(spot.position, 16, { animate: true, duration: 1.0 });
+    }
+    keysDownRef.current.clear();
+    joystickVectorRef.current = null;
+    setIsWalking(false);
+
+    setRunAwayNotification(`Ran away to a random spot: ${spot.name}!`);
+    setTimeout(() => {
+      setRunAwayNotification(null);
+    }, 4000);
+
+    onSendMovement?.({ lat: spot.position[0], lng: spot.position[1] }, 'down', student.activeVehicle);
+  };
+
+  // Handle external Run Away signal (e.g. escaping from battle)
+  useEffect(() => {
+    if (runAwayTarget && runAwayTarget.position) {
+      playerPosRef.current = runAwayTarget.position;
+      velRef.current = { x: 0, y: 0 };
+      setPlayerPosition(runAwayTarget.position);
+      if (playerMarkerRef.current) {
+        playerMarkerRef.current.setLatLng(runAwayTarget.position);
+      }
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.flyTo(runAwayTarget.position, 16, { animate: true, duration: 1.1 });
+      }
+      keysDownRef.current.clear();
+      joystickVectorRef.current = null;
+      setIsWalking(false);
+
+      setRunAwayNotification(`Escaped battle safely! Ran away to ${runAwayTarget.name}!`);
+      setTimeout(() => {
+        setRunAwayNotification(null);
+      }, 4000);
+
+      onSendMovement?.({ lat: runAwayTarget.position[0], lng: runAwayTarget.position[1] }, 'down', student.activeVehicle);
+    }
+  }, [runAwayTarget, student.activeVehicle, onSendMovement]);
 
   // Dynamic Random Weather System
   const [internalWeather, setInternalWeather] = useState<WeatherCondition>(() => {
@@ -353,7 +450,7 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
   // Local mini-map radar overlay
   const [localShowMiniMap, setLocalShowMiniMap] = useState<boolean>(() => {
     try {
-      const saved = localStorage.getItem('wordquest_minimap_enabled');
+      const saved = localStorage.getItem('lexiroam_minimap_enabled');
       return saved !== null ? saved === 'true' : false;
     } catch {
       return false;
@@ -369,7 +466,7 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
       setLocalShowMiniMap(prev => {
         const next = !prev;
         try {
-          localStorage.setItem('wordquest_minimap_enabled', String(next));
+          localStorage.setItem('lexiroam_minimap_enabled', String(next));
         } catch {
           // Ignore
         }
@@ -873,68 +970,83 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
         }
       }
 
-      // AUTONOMOUS MOB ROAMING SIMULATION (Mobs move on their own along streets!)
-      if (now - lastMobWanderTime > 80) {
-        lastMobWanderTime = now;
-        const [pLat, pLng] = playerPosRef.current;
+      // AUTONOMOUS MOB ROAMING SIMULATION (Mobs actively move on their own along streets!)
+      const deltaMobSec = lastMobWanderTime === 0 ? 0.016 : Math.min(0.06, (now - lastMobWanderTime) / 1000);
+      lastMobWanderTime = now;
+      const [pLat, pLng] = playerPosRef.current;
 
-        currentCity.monsters.forEach(m => {
-          if (student.defeatedMonsterIds.includes(m.id)) return;
+      currentCity.monsters.forEach((m, mIdx) => {
+        if (student.defeatedMonsterIds.includes(m.id)) return;
 
-          let sim = mobSimRef.current.get(m.id);
-          if (!sim) {
-            sim = {
-              lat: m.position[0],
-              lng: m.position[1],
-              anchorLat: m.position[0],
-              anchorLng: m.position[1],
-              targetLat: m.position[0],
-              targetLng: m.position[1],
-              isFacingLeft: false,
-              nextWanderTime: now + 1000 + Math.random() * 3000
-            };
-            mobSimRef.current.set(m.id, sim);
-          }
+        let sim = mobSimRef.current.get(m.id);
+        if (!sim) {
+          sim = {
+            lat: m.position[0],
+            lng: m.position[1],
+            anchorLat: m.position[0],
+            anchorLng: m.position[1],
+            targetLat: m.position[0],
+            targetLng: m.position[1],
+            isFacingLeft: false,
+            speed: 0.00032 + ((mIdx % 4) * 0.00006),
+            nextWanderTime: now + 500 + Math.random() * 2000
+          };
+          mobSimRef.current.set(m.id, sim);
+        }
 
-          // Pick new waypoint every few seconds
-          if (now > sim.nextWanderTime) {
-            const wanderRadius = 0.0022; // ~220 meters
-            const randAngle = Math.random() * Math.PI * 2;
-            const randDist = (0.2 + Math.random() * 0.8) * wanderRadius;
-            sim.targetLat = sim.anchorLat + Math.sin(randAngle) * randDist;
-            sim.targetLng = sim.anchorLng + Math.cos(randAngle) * randDist;
-            sim.nextWanderTime = now + 2500 + Math.random() * 4500;
-          }
+        // Pick new waypoint if time reached or monster is close to current target
+        const dLatTarget = sim.targetLat - sim.lat;
+        const dLngTarget = sim.targetLng - sim.lng;
+        const distTarget = Math.hypot(dLatTarget, dLngTarget);
 
-          // Smoothly interpolate towards target
-          const dLat = sim.targetLat - sim.lat;
-          const dLng = sim.targetLng - sim.lng;
-          const dist = Math.hypot(dLat, dLng);
+        if (now > sim.nextWanderTime || distTarget < 0.00015) {
+          const wanderRadius = 0.0035; // ~350 meters
+          const randAngle = Math.random() * Math.PI * 2;
+          const randDist = (0.25 + Math.random() * 0.75) * wanderRadius;
+          sim.targetLat = sim.anchorLat + Math.sin(randAngle) * randDist;
+          sim.targetLng = sim.anchorLng + Math.cos(randAngle) * randDist;
+          sim.speed = 0.00030 + (Math.random() * 0.00025);
+          sim.nextWanderTime = now + 4000 + Math.random() * 4500;
+        }
 
-          if (dist > 0.00005) {
-            const step = Math.min(dist, 0.000015);
-            sim.lat += (dLat / dist) * step;
-            sim.lng += (dLng / dist) * step;
-            sim.isFacingLeft = dLng < 0;
+        // Smoothly interpolate towards target
+        const dLat = sim.targetLat - sim.lat;
+        const dLng = sim.targetLng - sim.lng;
+        const dist = Math.hypot(dLat, dLng);
 
-            const marker = monsterMarkersRef.current[m.id];
-            if (marker) {
-              marker.setLatLng([sim.lat, sim.lng]);
+        if (dist > 0.00006) {
+          const step = Math.min(dist, sim.speed * deltaMobSec);
+          sim.lat += (dLat / dist) * step;
+          sim.lng += (dLng / dist) * step;
+          const newFacingLeft = dLng < 0;
+
+          const marker = monsterMarkersRef.current[m.id];
+          if (marker) {
+            marker.setLatLng([sim.lat, sim.lng]);
+            if (newFacingLeft !== sim.isFacingLeft) {
+              sim.isFacingLeft = newFacingLeft;
+              const isDef = student.defeatedMonsterIds.includes(m.id);
+              marker.setIcon(L.divIcon({
+                html: generateMobModelHtml(m, isDef, sim.isFacingLeft),
+                className: 'custom-monster-marker',
+                iconSize: [40, 52],
+                iconAnchor: [20, 44]
+              }));
             }
           }
+        }
 
-          // Check encounter collision with player
-          const distToPlayerLat = Math.abs(sim.lat - pLat);
-          const distToPlayerLng = Math.abs(sim.lng - pLng);
-          if (distToPlayerLat < 0.00060 && distToPlayerLng < 0.00060) {
-            soundEffects.playSelect();
-            onSelectMonster(m);
-            keysDownRef.current.clear();
-            velRef.current = { x: 0, y: 0 };
-            joystickVectorRef.current = null;
-          }
-        });
-      }
+        // Check encounter collision with player
+        const distToPlayerLat = Math.abs(sim.lat - pLat);
+        const distToPlayerLng = Math.abs(sim.lng - pLng);
+        if (distToPlayerLat < 0.00060 && distToPlayerLng < 0.00060) {
+          soundEffects.playSelect();
+          onSelectMonster(m);
+          keysDownRef.current.clear();
+          velRef.current = { x: 0, y: 0 };
+          joystickVectorRef.current = null;
+        }
+      });
     };
 
     animId = requestAnimationFrame(loop);
@@ -950,7 +1062,7 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
       const key = e.key.toLowerCase();
       if (key === 'p') {
         e.preventDefault();
-        soundEffects.playPhoneRing();
+        try { soundEffects.playPhoneRing(); } catch {}
         onOpenPhone();
         return;
       }
@@ -1009,10 +1121,11 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
       {/* 1. TOP STATUS & NAVIGATION BAR */}
       <header className="absolute top-3 left-3 right-3 sm:left-4 sm:right-4 z-[400] flex flex-wrap items-center justify-between gap-2 pointer-events-none">
         
-        {/* Left: City Badge + Weather + Missions */}
-        <div className="pointer-events-auto flex items-center gap-2">
-          <div className="flex items-center gap-2.5 bg-slate-900/95 backdrop-blur-md border border-slate-700/80 rounded-2xl p-2 sm:px-3 sm:py-2 shadow-2xl">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center text-white shadow font-black text-xs">
+        {/* Left Cluster: City Badge + Weather + Trainer XP Bar */}
+        <div className="pointer-events-auto flex items-center flex-wrap gap-2">
+          {/* City Badge */}
+          <div className="flex items-center gap-2.5 bg-slate-900/95 backdrop-blur-md border border-slate-700/80 rounded-2xl px-3 py-2 shadow-2xl">
+            <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center text-white shadow font-black text-xs">
               {cityIndex + 1}
             </div>
             <div>
@@ -1020,11 +1133,11 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
                 <h2 className="text-xs sm:text-sm font-extrabold text-white tracking-tight">
                   {currentCity.name}
                 </h2>
-                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 border border-slate-700 font-mono">
                   {cityIndex + 1}/{totalCities}
                 </span>
               </div>
-              <p className="text-[10px] text-slate-400 hidden md:block truncate max-w-[180px]">
+              <p className="text-[10px] text-slate-400 hidden md:block truncate max-w-[150px]">
                 {currentCity.country}
               </p>
             </div>
@@ -1037,44 +1150,31 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
             onOpenPhoneWeather={onOpenPhone}
           />
 
-          {/* Daily Missions System Trigger */}
-          {onOpenDailyMissions && (
-            <button
-              id="open-daily-missions-btn"
-              onClick={() => {
-                soundEffects.playSelect();
-                onOpenDailyMissions();
-              }}
-              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-2xl bg-gradient-to-r from-amber-400 via-amber-500 to-orange-500 hover:from-amber-300 hover:to-orange-400 border border-amber-300 text-slate-950 text-xs font-black shadow-lg shadow-amber-500/20 transition active:scale-95 cursor-pointer shrink-0"
-              title="Daily Missions (3 Daily Educational Tasks for XP & Coins)"
-            >
-              <Target className="w-4 h-4 shrink-0" />
-              <span className="hidden sm:inline">Daily Missions</span>
-            </button>
-          )}
+          {/* Trainer Level & XP Progress Bar (Lv. 1 - Lv. 1000) */}
+          <TrainerXpBar
+            xp={student.xp}
+            level={student.level}
+            avatarIcon={student.appearance?.avatar || '👦'}
+            name={student.name}
+            onOpenMastery={onOpenMastery}
+          />
+        </div>
 
-          {/* Daily Reward Bonus Button */}
-          {onOpenDailyReward && (
-            <button
-              id="open-daily-reward-btn"
-              onClick={() => {
-                soundEffects.playSelect();
-                onOpenDailyReward();
-              }}
-              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-2xl border text-xs font-black shadow-lg transition active:scale-95 cursor-pointer shrink-0 ${
-                isDailyRewardClaimed
-                  ? 'bg-slate-900/95 border-emerald-500/40 text-emerald-400 hover:bg-slate-800'
-                  : 'bg-gradient-to-r from-amber-400 to-amber-500 border-amber-300 text-slate-950 hover:from-amber-300 hover:to-amber-400 shadow-amber-500/30 animate-pulse'
-              }`}
-              title={isDailyRewardClaimed ? "Daily Bonus Claimed for Today (Streak Active)" : "Claim Today's Bonus Coins & XP!"}
-            >
-              <Gift className="w-4 h-4 shrink-0" />
-              <span className="hidden sm:inline">Daily Bonus</span>
-              {!isDailyRewardClaimed && (
-                <span className="w-2 h-2 rounded-full bg-red-500 animate-ping inline-block" />
-              )}
-            </button>
-          )}
+        {/* Center Cluster: Fast Travel, Airport, Final Boss */}
+        <div className="pointer-events-auto flex items-center flex-wrap gap-2">
+          {/* City Express Lines Button */}
+          <button
+            id="open-city-express-lines-btn"
+            onClick={() => {
+              soundEffects.playSelect();
+              onOpenTransitHub();
+            }}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-gradient-to-r from-sky-600 to-blue-700 hover:from-sky-500 hover:to-blue-600 border border-sky-400/60 text-white text-xs font-black shadow-lg shadow-sky-500/20 transition active:scale-95 cursor-pointer shrink-0"
+            title="Open City Express Lines Rapid Transit Hub"
+          >
+            <Train className="w-4 h-4 text-sky-200 shrink-0" />
+            <span className="hidden sm:inline">Express Lines</span>
+          </button>
 
           {/* Physical Airport Terminal Shortcut */}
           {onOpenAirport && (
@@ -1084,10 +1184,10 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
                 soundEffects.playSelect();
                 onOpenAirport();
               }}
-              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-2xl border text-xs font-black shadow-lg transition active:scale-95 cursor-pointer shrink-0 ${
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-2xl border text-xs font-black shadow-lg transition active:scale-95 cursor-pointer shrink-0 ${
                 allDefeated
                   ? 'bg-gradient-to-r from-emerald-600 to-sky-600 hover:from-emerald-500 hover:to-sky-500 border-emerald-400 text-white shadow-emerald-500/20 animate-pulse'
-                  : 'bg-gradient-to-r from-slate-800 to-slate-850 hover:from-slate-750 hover:to-slate-800 border-slate-700 text-slate-300'
+                  : 'bg-slate-900/95 hover:bg-slate-800 border-slate-700/80 text-slate-300'
               }`}
               title={allDefeated ? `Airport Runway Cleared! Ready to fly to ${secondCity.name}` : `Airport Terminal (${defeatedCount}/${totalMonsters} Monsters Cleared - Finish city to fly)`}
             >
@@ -1105,28 +1205,6 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
             </button>
           )}
 
-          {/* City Express Lines Button */}
-          <button
-            id="open-city-express-lines-btn"
-            onClick={() => {
-              soundEffects.playSelect();
-              onOpenTransitHub();
-            }}
-            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-2xl bg-gradient-to-r from-sky-600 to-blue-700 hover:from-sky-500 hover:to-blue-600 border border-sky-400/60 text-white text-xs font-black shadow-lg shadow-sky-500/20 transition active:scale-95 cursor-pointer shrink-0"
-            title="Open City Express Lines Rapid Transit Hub"
-          >
-            <Train className="w-4 h-4 text-sky-200 shrink-0" />
-            <span className="hidden sm:inline">Express Lines</span>
-          </button>
-
-          {/* Trainer Level & XP Progress Bar (Lv. 1 - Lv. 1000) */}
-          <TrainerXpBar
-            xp={student.xp}
-            level={student.level}
-            avatarIcon={student.appearance?.avatar || '👦'}
-            name={student.name}
-          />
-
           {/* Final Boss Portal Button */}
           <button
             id="open-final-boss-btn"
@@ -1143,15 +1221,25 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
               Lv.1000
             </span>
           </button>
+          {/* Run Away Button */}
+          <button
+            id="open-run-away-btn"
+            onClick={handleRunAwayToRandomSpot}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 border border-rose-400/80 text-white text-xs font-black shadow-lg shadow-rose-600/30 transition active:scale-95 cursor-pointer shrink-0"
+            title="Run Away! Sprint to a random spot across the city!"
+          >
+            <Footprints className="w-4 h-4 text-rose-200 shrink-0" />
+            <span>Run Away</span>
+          </button>
         </div>
 
-        {/* Center/Right: Action Buttons & Progress Pill */}
-        <div className="pointer-events-auto flex items-center gap-2">
+        {/* Right Cluster: Phone, Settings (with Daily Missions), Defeated Counter */}
+        <div className="pointer-events-auto flex items-center flex-wrap gap-2">
           {/* Smartphone App Button */}
           <button
             id="open-smartphone-btn"
             onClick={() => {
-              soundEffects.playPhoneRing();
+              try { soundEffects.playPhoneRing(); } catch {}
               onOpenPhone();
             }}
             className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-gradient-to-r from-purple-600/90 to-indigo-600/90 hover:from-purple-500 hover:to-indigo-500 border border-purple-400/60 text-white text-xs font-bold shadow-lg shadow-purple-500/20 transition cursor-pointer active:scale-95 animate-pulse"
@@ -1160,6 +1248,46 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
             <Smartphone className="w-4 h-4 text-purple-200" />
             <span>📱 Phone</span>
             <span className="hidden xl:inline text-[9px] text-purple-200 font-mono bg-purple-950/60 px-1 rounded">P</span>
+          </button>
+
+          {/* Daily Missions Direct Shortcut Button */}
+          <button
+            id="open-daily-missions-btn"
+            onClick={() => {
+              soundEffects.playSelect();
+              setSettingsTab('missions');
+              setShowSettingsModal(true);
+            }}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-2xl border text-xs font-black shadow-lg transition active:scale-95 cursor-pointer shrink-0 ${
+              hasUnclaimedMissions
+                ? 'bg-gradient-to-r from-amber-400 to-orange-500 border-amber-300 text-slate-950 animate-pulse'
+                : 'bg-slate-900/95 hover:bg-slate-800 border-slate-700/80 text-amber-300'
+            }`}
+            title="Daily Educational Missions (Check in Settings tab)"
+          >
+            <Target className="w-4 h-4 shrink-0" />
+            <span className="hidden sm:inline">Missions</span>
+            {hasUnclaimedMissions && (
+              <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping inline-block" />
+            )}
+          </button>
+
+          {/* Settings Button (opens settings & missions modal) */}
+          <button
+            id="header-settings-btn"
+            onClick={() => {
+              soundEffects.playSelect();
+              setSettingsTab('settings');
+              setShowSettingsModal(true);
+            }}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-slate-900/95 hover:bg-slate-800 border border-slate-700/80 hover:border-sky-400 text-slate-200 hover:text-white text-xs font-bold shadow-xl transition cursor-pointer active:scale-95 relative group"
+            title="Game Settings, Audio, Radar & Daily Missions"
+          >
+            <SettingsIcon className="w-4 h-4 text-slate-400 group-hover:text-sky-300 transition" />
+            <span className="hidden sm:inline">Settings</span>
+            {(hasUnclaimedMissions || !isDailyRewardClaimed) && (
+              <span className="w-2 h-2 rounded-full bg-amber-400 ring-2 ring-slate-900 animate-ping inline-block" />
+            )}
           </button>
 
           {/* Defeat Progress Pill */}
@@ -1175,38 +1303,32 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
             <button
               id="fly-to-second-city-btn"
               onClick={onOpenFlight}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-bold text-xs shadow-lg shadow-sky-500/30 animate-pulse border border-sky-400 cursor-pointer"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-sky-500 hover:from-emerald-400 hover:to-sky-400 border border-emerald-300 text-slate-950 text-xs font-black shadow-lg shadow-emerald-500/30 transition active:scale-95 cursor-pointer animate-pulse"
+              title={`Board Flight to ${secondCity.name} (${secondCity.country})`}
             >
-              <Plane className="w-4 h-4 animate-bounce" />
-              <span>FLY TO {secondCity.name.toUpperCase()}! ✈️</span>
+              <Plane className="w-4 h-4" />
+              <span>Fly to {secondCity.name}</span>
             </button>
           )}
-
-          {/* Monster Field Guide / Badges */}
-          <button
-            onClick={onOpenFieldGuide}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-slate-900/95 backdrop-blur-md border border-slate-700 hover:border-amber-400 text-white text-xs font-semibold shadow-lg hover:bg-slate-800 transition cursor-pointer"
-            title="Open Monster Field Guide & Badges"
-          >
-            <Award className="w-4 h-4 text-amber-400" />
-            <span className="hidden lg:inline">Guide</span>
-          </button>
-
-          {/* Settings Button */}
-          <button
-            id="toggle-settings-btn"
-            onClick={() => {
-              soundEffects.playSelect();
-              setShowSettingsModal(true);
-            }}
-            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-2xl bg-slate-900/95 border border-slate-700 hover:border-sky-400 text-slate-300 hover:text-white text-xs font-bold shadow-lg transition cursor-pointer"
-            title="Settings (Save Game, Reset, Mini-Map & Audio)"
-          >
-            <SettingsIcon className="w-3.5 h-3.5 text-sky-400" />
-            <span className="hidden sm:inline">Settings</span>
-          </button>
         </div>
       </header>
+
+      {/* Run Away Escape Notification Toast */}
+      {runAwayNotification && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[450] pointer-events-none animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="px-4 py-2.5 rounded-2xl bg-slate-900/95 backdrop-blur-md border border-rose-500/60 shadow-2xl flex items-center gap-2.5 text-white ring-2 ring-rose-500/20">
+            <span className="text-xl animate-bounce">🏃💨</span>
+            <div>
+              <div className="text-[10px] uppercase font-black tracking-wider text-rose-400">
+                Ran Away!
+              </div>
+              <div className="text-xs font-bold text-white">
+                {runAwayNotification}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 2. LEAFLET MAP CANVAS CONTAINER */}
       <div 
@@ -1253,101 +1375,165 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
         />
       </div>
 
-      {/* 5. FLOATING MAP CONTROLS */}
-      <aside aria-label="Map Controls" className="absolute bottom-6 right-4 z-[400] flex flex-col gap-2 pointer-events-auto">
+      {/* 5. FLOATING MAP CONTROLS DOCK */}
+      <aside aria-label="Map Controls" className="absolute bottom-6 right-4 z-[400] flex flex-col gap-2.5 pointer-events-auto">
         
-        {/* Street / Satellite Toggle */}
-        <button
-          onClick={() => {
-            setMapStyle(mapStyle === 'streets' ? 'satellite' : 'streets');
-            soundEffects.playSelect();
-          }}
-          className="w-10 h-10 rounded-xl bg-slate-900/95 border border-slate-700/80 hover:bg-slate-800 text-slate-200 shadow-xl flex items-center justify-center transition cursor-pointer"
-          title={`Switch to ${mapStyle === 'streets' ? 'Satellite' : 'Road'} View`}
-        >
-          <Layers className="w-4 h-4" />
-        </button>
-
-        {/* Sound Toggle */}
-        <button
-          onClick={onToggleMute}
-          className="w-10 h-10 rounded-xl bg-slate-900/95 border border-slate-700/80 hover:bg-slate-800 text-slate-200 shadow-xl flex items-center justify-center transition cursor-pointer"
-          title={isMuted ? 'Unmute Game Sounds' : 'Mute Sounds'}
-        >
-          {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4 text-amber-400" />}
-        </button>
-
-        {/* Fit Full Metropolis Overview Button */}
-        <button
-          id="map-fit-metropolis-btn"
-          onClick={() => {
-            if (mapInstanceRef.current) {
-              const bounds = computeCityBounds(currentCity);
-              mapInstanceRef.current.fitBounds(bounds.latLngBounds, { padding: [40, 40], duration: 1.2 });
+        {/* Card 1: View Modes & Audio & Tips Toggle */}
+        <div className="flex flex-col rounded-2xl overflow-hidden border border-slate-700/80 bg-slate-900/95 backdrop-blur-md shadow-2xl p-1 gap-1">
+          {/* Street / Satellite Toggle */}
+          <button
+            onClick={() => {
+              setMapStyle(mapStyle === 'streets' ? 'satellite' : 'streets');
               soundEffects.playSelect();
-            }
-          }}
-          className="w-10 h-10 rounded-xl bg-slate-900/95 border border-slate-700/80 hover:border-amber-400 hover:bg-slate-800 text-amber-400 shadow-xl flex items-center justify-center transition cursor-pointer"
-          title="Fit Full Metropolis Overview (See all scattered sectors & mobs)"
-        >
-          <Maximize2 className="w-5 h-5" />
-        </button>
+            }}
+            className="w-9 h-9 rounded-xl hover:bg-slate-800 text-slate-200 shadow flex items-center justify-center transition cursor-pointer active:scale-95"
+            title={`Switch to ${mapStyle === 'streets' ? 'Satellite' : 'Road'} View`}
+          >
+            <Layers className="w-4 h-4 text-sky-400" />
+          </button>
 
-        {/* Recenter on Trainer GPS Button */}
-        <button
-          onClick={handleRecenter}
-          className="w-10 h-10 rounded-xl bg-slate-900/95 border border-slate-700/80 hover:bg-slate-800 text-sky-400 shadow-xl flex items-center justify-center transition cursor-pointer"
-          title="Recenter on Trainer"
-        >
-          <Crosshair className="w-5 h-5" />
-        </button>
+          {/* Sound Toggle */}
+          <button
+            onClick={onToggleMute}
+            className="w-9 h-9 rounded-xl hover:bg-slate-800 text-slate-200 shadow flex items-center justify-center transition cursor-pointer active:scale-95"
+            title={isMuted ? 'Unmute Game Sounds' : 'Mute Sounds'}
+          >
+            {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-amber-400" />}
+          </button>
 
-        {/* Quick Settings Button */}
-        <button
-          id="map-floating-settings-btn"
-          onClick={() => {
-            soundEffects.playSelect();
-            setShowSettingsModal(true);
-          }}
-          className="w-10 h-10 rounded-xl bg-slate-900/95 border border-slate-700/80 hover:border-sky-400 hover:bg-slate-800 text-slate-200 hover:text-sky-300 shadow-xl flex items-center justify-center transition cursor-pointer"
-          title="Game Settings"
-        >
-          <SettingsIcon className="w-4 h-4" />
-        </button>
+          {/* Controls Tips Peek Toggle */}
+          <button
+            onClick={() => {
+              soundEffects.playSelect();
+              setShowControlsTips(prev => {
+                const next = !prev;
+                try {
+                  localStorage.setItem('wq_hide_controls_tips', next ? 'false' : 'true');
+                } catch {}
+                return next;
+              });
+            }}
+            className={`w-9 h-9 rounded-xl shadow flex items-center justify-center transition cursor-pointer active:scale-95 ${
+              showControlsTips ? 'bg-amber-500/20 text-amber-300' : 'hover:bg-slate-800 text-slate-400 hover:text-amber-300'
+            }`}
+            title={showControlsTips ? 'Hide Controls Tips Banner' : 'Show Controls Tips Banner'}
+          >
+            <HelpCircle className="w-4 h-4" />
+          </button>
+        </div>
 
-        {/* Zoom In & Out Stack */}
-        <div className="flex flex-col rounded-xl overflow-hidden border border-slate-700/80 bg-slate-900/95 shadow-xl">
+        {/* Card 2: Camera Navigation & Settings */}
+        <div className="flex flex-col rounded-2xl overflow-hidden border border-slate-700/80 bg-slate-900/95 backdrop-blur-md shadow-2xl p-1 gap-1">
+          {/* Recenter on Trainer GPS */}
+          <button
+            onClick={handleRecenter}
+            className="w-9 h-9 rounded-xl hover:bg-slate-800 text-sky-400 shadow flex items-center justify-center transition cursor-pointer active:scale-95"
+            title="Recenter on Trainer"
+          >
+            <Crosshair className="w-4 h-4" />
+          </button>
+
+          {/* Fit Full Metropolis Overview Button */}
+          <button
+            id="map-fit-metropolis-btn"
+            onClick={() => {
+              if (mapInstanceRef.current) {
+                const bounds = computeCityBounds(currentCity);
+                mapInstanceRef.current.fitBounds(bounds.latLngBounds, { padding: [40, 40], duration: 1.2 });
+                soundEffects.playSelect();
+              }
+            }}
+            className="w-9 h-9 rounded-xl hover:bg-slate-800 text-amber-400 shadow flex items-center justify-center transition cursor-pointer active:scale-95"
+            title="Fit Full Metropolis Overview (See all scattered sectors & mobs)"
+          >
+            <Maximize2 className="w-4 h-4" />
+          </button>
+
+          {/* Run Away to Random Spot Button */}
+          <button
+            id="map-floating-run-away-btn"
+            onClick={handleRunAwayToRandomSpot}
+            className="w-9 h-9 rounded-xl hover:bg-rose-950/60 text-rose-400 hover:text-rose-300 shadow flex items-center justify-center transition cursor-pointer active:scale-95"
+            title="Run Away (Sprint to a Random Spot in the City!)"
+          >
+            <Footprints className="w-4 h-4" />
+          </button>
+
+          {/* Quick Settings Button with notification badge */}
+          <button
+            id="map-floating-settings-btn"
+            onClick={() => {
+              soundEffects.playSelect();
+              setSettingsTab('settings');
+              setShowSettingsModal(true);
+            }}
+            className="w-9 h-9 rounded-xl hover:bg-slate-800 text-slate-200 hover:text-sky-300 shadow flex items-center justify-center transition cursor-pointer active:scale-95 relative"
+            title="Game Settings & Daily Missions"
+          >
+            <SettingsIcon className="w-4 h-4" />
+            {(hasUnclaimedMissions || !isDailyRewardClaimed) && (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-slate-900 animate-ping" />
+            )}
+          </button>
+        </div>
+
+        {/* Card 3: Zoom In & Out */}
+        <div className="flex flex-col rounded-2xl overflow-hidden border border-slate-700/80 bg-slate-900/95 backdrop-blur-md shadow-2xl p-1 gap-1">
           <button
             onClick={handleZoomIn}
             disabled={currentZoom >= 18}
-            className={`w-10 h-10 text-slate-200 flex items-center justify-center border-b border-slate-800 transition cursor-pointer ${
-              currentZoom >= 18 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-slate-800'
+            className={`w-9 h-9 rounded-xl flex items-center justify-center transition cursor-pointer ${
+              currentZoom >= 18 ? 'opacity-30 cursor-not-allowed text-slate-500' : 'text-slate-200 hover:bg-slate-800 active:scale-95'
             }`}
             title="Zoom In"
           >
-            <Plus className="w-5 h-5" />
+            <Plus className="w-4 h-4" />
           </button>
           <button
             onClick={handleZoomOut}
             disabled={currentZoom <= 11}
-            className={`w-10 h-10 text-slate-200 flex items-center justify-center transition cursor-pointer ${
-              currentZoom <= 11 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-slate-800'
+            className={`w-9 h-9 rounded-xl flex items-center justify-center transition cursor-pointer ${
+              currentZoom <= 11 ? 'opacity-30 cursor-not-allowed text-slate-500' : 'text-slate-200 hover:bg-slate-800 active:scale-95'
             }`}
             title="Zoom Out"
           >
-            <Minus className="w-5 h-5" />
+            <Minus className="w-4 h-4" />
           </button>
         </div>
       </aside>
 
       {/* 6. INSTRUCTION BANNER & VERSION TAG */}
       <footer className="absolute bottom-4 left-4 right-16 sm:right-auto z-[390] pointer-events-none flex flex-col sm:flex-row items-start sm:items-center gap-2">
-        <div className="pointer-events-auto max-w-sm p-3 rounded-xl bg-slate-900/90 backdrop-blur-md border border-slate-700 text-slate-200 text-xs shadow-xl flex items-start gap-2.5">
-          <HelpCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-          <div className="leading-relaxed">
-            <span className="font-semibold text-white">Controls:</span> Hold <strong>W, A, S, D</strong> to walk with smooth momentum. Mobs roam the streets on their own and hide inside monuments! Visit the <strong>Airport</strong> to fly!
+        {showControlsTips && (
+          <div className="pointer-events-auto max-w-sm p-3.5 rounded-2xl bg-slate-900/95 backdrop-blur-md border border-slate-700/80 text-slate-200 text-xs shadow-2xl flex items-start gap-3 transition-all animate-in fade-in duration-200">
+            <div className="p-1.5 rounded-xl bg-amber-400/15 text-amber-400 border border-amber-400/30 shrink-0">
+              <HelpCircle className="w-4 h-4" />
+            </div>
+            <div className="leading-relaxed flex-1 pr-1">
+              <div className="font-bold text-white text-xs mb-0.5 flex items-center gap-1.5">
+                <span>Controls Guide</span>
+                <span className="text-[9px] px-1.5 py-0.2 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30 font-mono">WASD</span>
+              </div>
+              <p className="text-[11px] text-slate-300 leading-normal">
+                Hold <strong>W, A, S, D</strong> to walk with smooth momentum. Mobs actively roam the streets and lurk in monuments! Clear all monsters to unlock the <strong>Airport</strong>!
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                soundEffects.playSelect();
+                setShowControlsTips(false);
+                try {
+                  localStorage.setItem('wq_hide_controls_tips', 'true');
+                } catch {}
+              }}
+              className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer shrink-0"
+              title="Close Controls Tips (Reopen anytime from Settings or ? button)"
+              aria-label="Close controls tips"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
-        </div>
+        )}
         <button
           onClick={() => {
             soundEffects.playSelect();
@@ -1357,10 +1543,10 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
               setShowUpdateLogsModal(true);
             }
           }}
-          className="pointer-events-auto flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-900/90 hover:bg-slate-800 backdrop-blur-sm border border-slate-800 hover:border-sky-400 text-[10px] font-mono text-slate-400 hover:text-sky-300 shadow transition cursor-pointer group"
-          title="Click to view WordQuest Update Logs & Release Notes"
+          className="pointer-events-auto flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-900/95 hover:bg-slate-800 backdrop-blur-sm border border-slate-750 hover:border-sky-400 text-[10px] font-mono text-slate-400 hover:text-sky-300 shadow transition cursor-pointer group"
+          title="Click to view Lexiroam Update Logs & Release Notes"
         >
-          <span>WordQuest</span>
+          <span>Lexiroam</span>
           <span className="text-sky-400 font-bold group-hover:underline">v{APP_VERSION}</span>
         </button>
       </footer>
@@ -1368,12 +1554,25 @@ export const CityMapView: React.FC<CityMapViewProps> = ({
       {/* 7. SETTINGS MODAL */}
       {showSettingsModal && (
         <SettingsModal
+          initialTab={settingsTab}
           showMiniMap={showMiniMap}
           onToggleMiniMap={handleToggleMiniMap}
           isMuted={isMuted}
           onToggleMute={onToggleMute}
           tempUnit={tempUnit}
           onToggleTempUnit={onToggleTempUnit}
+          showControlsTips={showControlsTips}
+          onToggleControlsTips={() => {
+            setShowControlsTips(prev => {
+              const next = !prev;
+              try {
+                localStorage.setItem('wq_hide_controls_tips', next ? 'false' : 'true');
+              } catch {}
+              return next;
+            });
+          }}
+          student={student}
+          onRewardClaimed={onRewardClaimed}
           onOpenSaveSystem={onOpenSaveSystem}
           onResetClick={onResetClick}
           onOpenUpdateLogs={() => {

@@ -3,7 +3,7 @@ import confetti from 'canvas-confetti';
 import { Monster, StudentProfile, Question } from '../types';
 import { soundEffects } from '../utils/audio';
 import { speakEnglishText } from '../utils/tts';
-import { prepareBattleQuestions } from '../utils/questionUtils';
+import { prepareBattleQuestions, formatHarderClue } from '../utils/questionUtils';
 import { 
   Volume2, 
   HelpCircle, 
@@ -29,13 +29,15 @@ interface BattleModalProps {
   student: StudentProfile;
   onVictory: (monsterId: string, earnedXp: number) => void;
   onClose: () => void;
+  onRunAway?: () => void;
 }
 
 export const BattleModal: React.FC<BattleModalProps> = ({
   monster,
   student,
   onVictory,
-  onClose
+  onClose,
+  onRunAway
 }) => {
   const [battleQuestions, setBattleQuestions] = useState<Question[]>(() => 
     prepareBattleQuestions(monster.questions || [])
@@ -227,7 +229,7 @@ export const BattleModal: React.FC<BattleModalProps> = ({
         setFeedback({
           type: 'wrong',
           message: `"${typedAnswer.trim()}" is not correct. Check your spelling and try again! (${nextChances} chances left)`,
-          explanation: `Tip: Look at the teacher clue for letter hints!`
+          explanation: `Tip: Inspect the Teacher Clue for conceptual and grammatical guidance!`
         });
         setShowHint(true);
       }
@@ -333,6 +335,24 @@ export const BattleModal: React.FC<BattleModalProps> = ({
               ))}
             </div>
           </div>
+
+          {/* Run Away Button in Header */}
+          <button
+            id="battle-header-run-away-btn"
+            onClick={() => {
+              soundEffects.playSelect();
+              if (onRunAway) {
+                onRunAway();
+              } else {
+                onClose();
+              }
+            }}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white text-xs font-black shadow-md shadow-rose-600/30 transition cursor-pointer active:scale-95"
+            title="Run Away from Battle (Escape to a Random Spot in the City!)"
+          >
+            <span>🏃</span>
+            <span>Run Away</span>
+          </button>
 
           <button
             onClick={onClose}
@@ -518,7 +538,7 @@ export const BattleModal: React.FC<BattleModalProps> = ({
               {showHint && question.hint && (
                 <div className="mt-2 text-xs text-amber-300/90 bg-amber-500/10 border border-amber-500/20 p-2 rounded-xl flex items-center gap-1.5 animate-in fade-in">
                   <Sparkles className="w-3.5 h-3.5 shrink-0" />
-                  <span>Teacher Clue: {question.hint}</span>
+                  <span>Teacher Clue: {formatHarderClue(question.hint, question.questionText, question.category)}</span>
                 </div>
               )}
             </div>
@@ -650,6 +670,31 @@ export const BattleModal: React.FC<BattleModalProps> = ({
                   </button>
                 );
               })}
+            </div>
+          )}
+
+          {/* Bottom Action Footer with Run Away option */}
+          {!isWon && (
+            <div className="flex items-center justify-between pt-2.5 mt-1 border-t border-slate-800/80 text-xs">
+              <span className="text-[11px] text-slate-400">
+                Lurking on <strong className="text-white">{monster.streetName}</strong>
+              </span>
+              <button
+                id="battle-bottom-run-away-btn"
+                onClick={() => {
+                  soundEffects.playSelect();
+                  if (onRunAway) {
+                    onRunAway();
+                  } else {
+                    onClose();
+                  }
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/90 hover:bg-rose-950/60 border border-slate-700 hover:border-rose-500/50 text-slate-300 hover:text-rose-200 text-xs font-bold transition cursor-pointer active:scale-95 group shadow-sm"
+                title="Flee battle and run to a random spot in the city"
+              >
+                <span className="text-sm group-hover:animate-bounce">🏃</span>
+                <span>Run Away to Random Spot</span>
+              </button>
             </div>
           )}
 

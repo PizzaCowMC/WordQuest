@@ -155,7 +155,7 @@ function getSeededRandom(seedStr: string): () => number {
   };
 }
 
-const STORAGE_PREFIX = 'wordquest_daily_missions_';
+const STORAGE_PREFIX = 'lexiroam_daily_missions_';
 
 export function getDailyMissions(): { date: string; missions: DailyMission[]; allClaimed: boolean; hasUnclaimed: boolean } {
   const dateStr = getTodayDateString();
@@ -225,7 +225,7 @@ export function saveDailyMissions(missions: DailyMission[]) {
   const storageKey = STORAGE_PREFIX + dateStr;
   try {
     localStorage.setItem(storageKey, JSON.stringify(missions));
-    window.dispatchEvent(new CustomEvent('wordquest_missions_updated', { detail: missions }));
+    window.dispatchEvent(new CustomEvent('lexiroam_missions_updated', { detail: missions }));
   } catch {
     // ignore
   }

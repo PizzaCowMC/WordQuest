@@ -134,7 +134,10 @@ export const celsiusToFahrenheit = (c: number): number => {
 /**
  * Formats a temperature into either °C or °F based on preference.
  */
-export const formatTemperature = (celsius: number, unit: 'C' | 'F' = 'C'): string => {
+export const formatTemperature = (celsius?: number, unit: 'C' | 'F' = 'C'): string => {
+  if (typeof celsius !== 'number' || isNaN(celsius)) {
+    return unit === 'F' ? '68°F' : '20°C';
+  }
   if (unit === 'F') {
     return `${celsiusToFahrenheit(celsius)}°F`;
   }
@@ -151,19 +154,23 @@ export interface HourlyForecastItem {
   tempCelsius: number;
 }
 
-export const getHourlyForecast = (currentCond: WeatherCondition, baseTemp: number): HourlyForecastItem[] => {
+export const getHourlyForecast = (currentCond: WeatherCondition = 'sunny', baseTemp: number = 20): HourlyForecastItem[] => {
+  const safeCond = (currentCond && WEATHER_DATA[currentCond]) ? currentCond : 'sunny';
   const hours = ['Now', '+1h', '+2h', '+3h', '+4h', '+5h'];
-  const variants: WeatherCondition[] = [currentCond, currentCond, 'cloudy', 'sunny', 'windy', 'rainy'];
-  
+  const variants: WeatherCondition[] = [safeCond, safeCond, 'cloudy', 'sunny', 'windy', 'rainy'];
+  const validTemp = (typeof baseTemp === 'number' && !isNaN(baseTemp)) ? baseTemp : 20;
+  const shift = Math.abs(Math.round(validTemp)) % 3;
+
   return hours.map((hour, index) => {
-    const cond = index === 0 ? currentCond : variants[(index + (baseTemp % 3)) % variants.length];
-    const item = WEATHER_DATA[cond];
+    const condIdx = (index + shift) % variants.length;
+    const cond = index === 0 ? safeCond : (variants[condIdx] || safeCond);
+    const item = (cond && WEATHER_DATA[cond]) ? WEATHER_DATA[cond] : WEATHER_DATA.sunny;
     const tempDelta = Math.sin(index * 0.8) * 2;
     return {
       timeLabel: hour,
       condition: cond,
-      icon: item.icon,
-      tempCelsius: Math.round(baseTemp + tempDelta)
+      icon: item?.icon || '☀️',
+      tempCelsius: Math.round(validTemp + tempDelta)
     };
   });
 };
@@ -179,19 +186,20 @@ export interface DailyForecastItem {
   lowCelsius: number;
 }
 
-export const getDailyForecast = (baseCond: WeatherCondition): DailyForecastItem[] => {
+export const getDailyForecast = (baseCond: WeatherCondition = 'sunny'): DailyForecastItem[] => {
+  const safeCond = (baseCond && WEATHER_DATA[baseCond]) ? baseCond : 'sunny';
   const days = ['Today', 'Tomorrow', 'Wed', 'Thu', 'Fri'];
-  const list: WeatherCondition[] = [baseCond, 'cloudy', 'sunny', 'rainy', 'windy'];
+  const list: WeatherCondition[] = [safeCond, 'cloudy', 'sunny', 'rainy', 'windy'];
   
   return days.map((day, i) => {
-    const c = list[i % list.length];
-    const data = WEATHER_DATA[c];
+    const c = list[i % list.length] || safeCond;
+    const data = (c && WEATHER_DATA[c]) ? WEATHER_DATA[c] : WEATHER_DATA.sunny;
     return {
       dayLabel: day,
       condition: c,
-      icon: data.icon,
-      highCelsius: data.highCelsius,
-      lowCelsius: data.lowCelsius
+      icon: data?.icon || '☀️',
+      highCelsius: data?.highCelsius ?? 22,
+      lowCelsius: data?.lowCelsius ?? 15
     };
   });
 };

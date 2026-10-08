@@ -4,7 +4,8 @@ import { StarterCompanion, CityData, TrainerAppearance } from '../types';
 import { AVATAR_OPTIONS, OUTFIT_COLORS, ACCESSORY_OPTIONS } from '../data/transitData';
 import { APP_VERSION } from '../data/updateLogs';
 import { soundEffects } from '../utils/audio';
-import { Sparkles, MapPin, Plane, ArrowRight, User, Globe2, Palette, Shield, Compass } from 'lucide-react';
+import { Sparkles, MapPin, Plane, ArrowRight, User, Globe2, Palette, Shield, Compass, Dices } from 'lucide-react';
+import { generateUniqueTrainerName } from '../utils/nameGenerator';
 
 interface TrainerSetupModalProps {
   currentCity: CityData;
@@ -23,7 +24,14 @@ export const TrainerSetupModal: React.FC<TrainerSetupModalProps> = ({
   initialStarter,
   onComplete
 }) => {
-  const [name, setName] = useState(initialName);
+  const [name, setName] = useState(initialName || generateUniqueTrainerName());
+
+  const handleMakeUniqueName = () => {
+    soundEffects.playSelect();
+    const unique = generateUniqueTrainerName();
+    setName(unique);
+    if (error) setError('');
+  };
   const [selectedAvatar, setSelectedAvatar] = useState(
     initialAppearance 
       ? AVATAR_OPTIONS.find(a => a.avatar === initialAppearance.avatar) || AVATAR_OPTIONS[0]
@@ -134,11 +142,23 @@ export const TrainerSetupModal: React.FC<TrainerSetupModalProps> = ({
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* 1. Name Input */}
           <div>
-            <label htmlFor="trainer-name-input" className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5 flex items-center gap-1.5">
-              <User className="w-3.5 h-3.5 text-amber-400" />
-              1. Choose Your Name:
-            </label>
-            <div className="relative">
+            <div className="flex items-center justify-between mb-1.5">
+              <label htmlFor="trainer-name-input" className="block text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                <User className="w-3.5 h-3.5 text-amber-400" />
+                <span>1. Choose Your Name:</span>
+              </label>
+              <button
+                type="button"
+                id="make-unique-name-btn"
+                onClick={handleMakeUniqueName}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 text-xs font-black shadow-md shadow-amber-500/20 transition cursor-pointer active:scale-95"
+                title="Generate a Unique Adventurer Name"
+              >
+                <Dices className="w-3.5 h-3.5" />
+                <span>Make Unique Name</span>
+              </button>
+            </div>
+            <div className="relative flex items-center">
               <input
                 id="trainer-name-input"
                 type="text"
@@ -148,10 +168,18 @@ export const TrainerSetupModal: React.FC<TrainerSetupModalProps> = ({
                   if (error) setError('');
                 }}
                 placeholder="Type your name (e.g. Ash, Maya, Leo, Emma)..."
-                maxLength={20}
-                className="w-full px-4 py-2.5 bg-slate-800/90 border border-slate-600 rounded-xl text-white placeholder-slate-400 font-medium text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent transition-all"
+                maxLength={24}
+                className="w-full pl-4 pr-10 py-2.5 bg-slate-800/90 border border-slate-600 rounded-xl text-white placeholder-slate-400 font-medium text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent transition-all"
                 autoFocus
               />
+              <button
+                type="button"
+                onClick={handleMakeUniqueName}
+                className="absolute right-2 p-1.5 rounded-lg text-slate-400 hover:text-amber-300 hover:bg-slate-700 transition cursor-pointer"
+                title="Reroll Unique Name"
+              >
+                <Sparkles className="w-4 h-4 text-amber-400" />
+              </button>
             </div>
             {error && (
               <p className="text-xs text-red-400 font-medium mt-1 animate-pulse">

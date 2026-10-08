@@ -344,36 +344,132 @@ const ADVANCED_C2_ITEMS = [
     hint: 'Inverted second conditional ("Were + subject + to-infinitive").',
     expl: '"Were + subject + to + base verb" forms an elegant inverted second conditional for future hypothetical possibilities.',
     cat: 'grammar' as const
+  },
+  {
+    q: 'Not only _____ the ancient manuscript, but they also decoded its cryptic cypher.',
+    ans: 'did they restore',
+    dist: ['they restored', 'they had restored', 'were they restored'],
+    hint: 'Correlative conjunction "Not only" at the start of an independent clause triggers auxiliary inversion.',
+    expl: 'When "not only" initiates a sentence, inverted syntax ("did + subject + base verb") is grammatically required.',
+    cat: 'grammar' as const
+  },
+  {
+    q: 'Little _____ that the road ahead was guarded by the Leviathan of Syntax.',
+    ans: 'did the voyager suspect',
+    dist: ['the voyager suspected', 'the voyager had suspected', 'was the voyager suspecting'],
+    hint: 'Negative restrictive adverb "Little" placed clause-initially mandates subject-operator inversion.',
+    expl: 'Clauses introduced by "Little" invert the subject and auxiliary: "did the voyager suspect".',
+    cat: 'grammar' as const
+  },
+  {
+    q: 'No sooner _____ the city gate than a violent gale swept across the plaza.',
+    ans: 'had they crossed',
+    dist: ['did they cross', 'they had crossed', 'they crossed'],
+    hint: 'Classic inverted temporal correlative: "No sooner had + subject + past participle ... than".',
+    expl: '"No sooner" introduces an inverted past perfect structure followed by a "than" clause in simple past.',
+    cat: 'grammar' as const
+  },
+  {
+    q: 'Hardly _____ when the midnight bell tolled across the grand square.',
+    ans: 'had the lesson begun',
+    dist: ['the lesson began', 'did the lesson begin', 'was the lesson begun'],
+    hint: 'Restrictive adverb "Hardly" followed by "when" requires past perfect inversion.',
+    expl: '"Hardly had + subject + past participle ... when" is standard high-level English inverted narrative syntax.',
+    cat: 'grammar' as const
+  },
+  {
+    q: 'Which term denotes the rhetorical repetition of a word or phrase at the beginning of successive clauses?',
+    ans: 'Anaphora',
+    dist: ['Epistrophe', 'Polysyndeton', 'Asyndeton'],
+    hint: 'Classical Greek rhetorical device frequently used in monumental oratory and poetic cadences.',
+    expl: '"Anaphora" is the deliberate repetition of initial words across sequential clauses or verses.',
+    cat: 'reading' as const
+  },
+  {
+    q: 'What rhetorical device is exhibited in: "Fair is foul, and foul is fair"?',
+    ans: 'Chiasmus',
+    dist: ['Tautology', 'Euphemism', 'Hyperbaton'],
+    hint: 'Inverted grammatical parallelism following an A-B-B-A structural motif.',
+    expl: '"Chiasmus" crosses syntactic structures in reverse order for rhythmic and philosophical balance.',
+    cat: 'reading' as const
+  },
+  {
+    q: 'The high council resolved that the diplomat _____ granted full immunity immediately.',
+    ans: 'be',
+    dist: ['is', 'was', 'should been'],
+    hint: 'Mandative subjunctive following verbs of formal resolution, requirement, and governance.',
+    expl: 'Formal subjunctive in subordinate "that"-clauses retains the bare infinitive "be".',
+    cat: 'grammar' as const
+  },
+  {
+    q: 'It is of paramount importance that every traveler _____ vigilant in unfamiliar terrain.',
+    ans: 'remain',
+    dist: ['remains', 'remained', 'is remaining'],
+    hint: 'Formulaic mandative subjunctive mood triggered by adjectives of essential obligation.',
+    expl: 'After "it is important/imperative/vital that...", the verb remains uninflected without third-person "-s".',
+    cat: 'grammar' as const
+  },
+  {
+    q: 'Which rare adjective describes someone stubbornly resistant to authority, discipline, or control?',
+    ans: 'Recalcitrant',
+    dist: ['Complaisant', 'Docile', 'Equable'],
+    hint: 'Etymologically derived from Latin "recalcitrare", literally meaning "to kick back like an unruly mule".',
+    expl: '"Recalcitrant" describes obstinate defiance and stubborn refusal to comply with rules or authority.',
+    cat: 'vocabulary' as const
+  },
+  {
+    q: 'What is the precise meaning of the adjective "PERSPICACIOUS"?',
+    ans: 'Having a ready insight into and deep discerning understanding of complex matters',
+    dist: ['Noticeably sweating from intense anxiety', 'Exceedingly generous with financial resources', 'Cautious and hesitant to take any action'],
+    hint: 'Connected to acute mental penetration and perceptive discernment.',
+    expl: '"Perspicacious" denotes keen mental acuity, shrewd discernment, and deep analytical insight.',
+    cat: 'vocabulary' as const
+  },
+  {
+    q: 'The professor criticized the thesis for being excessively _____, marred by inflated, bombastic prose.',
+    ans: 'turgid',
+    dist: ['limpid', 'pellucid', 'concise'],
+    hint: 'Denotes swollen, pompous, grandiloquent language lacking genuine intellectual substance.',
+    expl: '"Turgid" describes prose that is swollen, pompous, and needlessly bombastic.',
+    cat: 'vocabulary' as const
+  },
+  {
+    q: 'Only when the ancient archives were unsealed _____ the true lineage of the founders.',
+    ans: 'did historians discover',
+    dist: ['historians discovered', 'historians had discovered', 'were historians discovering'],
+    hint: 'Restrictive time phrase "Only when..." placed at the head of a complex sentence inverts the main clause.',
+    expl: 'Initial "Only when/after/if..." constructions require subject-auxiliary inversion in the matrix clause.',
+    cat: 'grammar' as const
   }
 ];
 
-// Non-multiple choice typing templates (1,000 questions)
+// Non-multiple choice typing templates (1,000 questions) - Harder clues without letter-hyphen giveaways
 const TYPING_SEED_ITEMS = [
-  { q: 'Type the irregular past tense of "SEEK":', ans: 'sought', cat: 'grammar' as const, hint: 's-o-u-g-h-t' },
-  { q: 'Type the irregular past participle of "FLY":', ans: 'flown', cat: 'grammar' as const, hint: 'f-l-o-w-n' },
-  { q: 'Type the irregular past tense of "FREEZE":', ans: 'froze', cat: 'grammar' as const, hint: 'f-r-o-z-e' },
-  { q: 'Type the irregular past participle of "WRITE":', ans: 'written', cat: 'grammar' as const, hint: 'w-r-i-t-t-e-n' },
-  { q: 'Type the irregular past tense of "CATCH":', ans: 'caught', cat: 'grammar' as const, hint: 'c-a-u-g-h-t' },
-  { q: 'Type the irregular past participle of "CHOOSE":', ans: 'chosen', cat: 'grammar' as const, hint: 'c-h-o-s-e-n' },
-  { q: 'Type the irregular past tense of "BRING":', ans: 'brought', cat: 'grammar' as const, hint: 'b-r-o-u-g-h-t' },
-  { q: 'Type the irregular past participle of "FORGET":', ans: 'forgotten', cat: 'grammar' as const, hint: 'f-o-r-g-o-t-t-e-n' },
-  { q: 'Type the irregular past tense of "SHAKE":', ans: 'shook', cat: 'grammar' as const, hint: 's-h-o-o-k' },
-  { q: 'Type the irregular past participle of "TEAR":', ans: 'torn', cat: 'grammar' as const, hint: 't-o-r-n' },
-  { q: 'Type the 100% correct spelling of the word meaning "lodging / living space":', ans: 'accommodation', cat: 'spelling' as const, hint: 'Two c\'s, two m\'s' },
-  { q: 'Type the correct spelling of the word meaning "essential / obligatory":', ans: 'necessary', cat: 'spelling' as const, hint: 'One c, two s\'s' },
-  { q: 'Type the correct spelling of the word meaning "to divide or set apart":', ans: 'separate', cat: 'spelling' as const, hint: 's-e-p-a-r-a-t-e' },
-  { q: 'Type the correct spelling of the musical cadence word "R _ _ _ _ M":', ans: 'rhythm', cat: 'spelling' as const, hint: 'r-h-y-t-h-m' },
-  { q: 'Type the correct spelling of the word meaning "without any doubt":', ans: 'definitely', cat: 'spelling' as const, hint: 'd-e-f-i-n-i-t-e-l-y' },
-  { q: 'Type the exact opposite (antonym) of the word "ANCIENT":', ans: 'modern', cat: 'vocabulary' as const, hint: 'm-o-d-e-r-n' },
-  { q: 'Type the exact opposite (antonym) of the word "ABUNDANT":', ans: 'scarce', cat: 'vocabulary' as const, hint: 's-c-a-r-c-e' },
-  { q: 'Type the exact opposite (antonym) of the word "ARTIFICIAL":', ans: 'natural', cat: 'vocabulary' as const, hint: 'n-a-t-u-r-a-l' },
-  { q: 'Type the exact opposite (antonym) of the word "CONCEAL":', ans: 'reveal', cat: 'vocabulary' as const, hint: 'r-e-v-e-a-l' },
-  { q: 'Type the exact opposite (antonym) of the word "BRAVE":', ans: 'cowardly', cat: 'vocabulary' as const, hint: 'c-o-w-a-r-d-l-y' },
-  { q: 'Type the comparative form of the adjective "BAD":', ans: 'worse', cat: 'grammar' as const, hint: 'w-o-r-s-e' },
-  { q: 'Type the superlative form of the adjective "GOOD":', ans: 'best', cat: 'grammar' as const, hint: 'b-e-s-t' },
-  { q: 'Type the plural form of the irregular noun "CRISIS":', ans: 'crises', cat: 'spelling' as const, hint: 'c-r-i-s-e-s' },
-  { q: 'Type the plural form of the noun "CRITERION":', ans: 'criteria', cat: 'spelling' as const, hint: 'c-r-i-t-e-r-i-a' },
-  { q: 'Type the missing preposition: "We arrived _____ London at 8:00 AM."', ans: 'in', cat: 'grammar' as const, hint: 'Used for large cities and countries' }
+  { q: 'Type the irregular past tense of "SEEK":', ans: 'sought', cat: 'grammar' as const, hint: 'Follows the Germanic dental preterite ablaut pattern ending in "-ought".' },
+  { q: 'Type the irregular past participle of "FLY":', ans: 'flown', cat: 'grammar' as const, hint: 'Class 2 strong verb participle ending with nasal suffix "-own".' },
+  { q: 'Type the irregular past tense of "FREEZE":', ans: 'froze', cat: 'grammar' as const, hint: 'Ablaut vowel shift transforming the diphthong into long "o".' },
+  { q: 'Type the irregular past participle of "WRITE":', ans: 'written', cat: 'grammar' as const, hint: 'Strong verb with doubled medial consonant and traditional "-en" ending.' },
+  { q: 'Type the irregular past tense of "CATCH":', ans: 'caught', cat: 'grammar' as const, hint: 'Irregular phonological assimilation ending in "-aught".' },
+  { q: 'Type the irregular past participle of "CHOOSE":', ans: 'chosen', cat: 'grammar' as const, hint: 'Vowel mutation from double-o to single-o with participle suffix "-en".' },
+  { q: 'Type the irregular past tense of "BRING":', ans: 'brought', cat: 'grammar' as const, hint: 'Irregular dental preterite sharing the rhyming stem of "bought" and "thought".' },
+  { q: 'Type the irregular past participle of "FORGET":', ans: 'forgotten', cat: 'grammar' as const, hint: 'Geminate consonant doubling on the stem before the past participle suffix.' },
+  { q: 'Type the irregular past tense of "SHAKE":', ans: 'shook', cat: 'grammar' as const, hint: 'Vowel shortening ablaut shift from "a" to "oo".' },
+  { q: 'Type the irregular past participle of "TEAR":', ans: 'torn', cat: 'grammar' as const, hint: 'Monosyllabic strong participle ending with r-colored vowel and nasal "n".' },
+  { q: 'Type the 100% correct spelling of the word meaning "lodging / living space":', ans: 'accommodation', cat: 'spelling' as const, hint: 'Latin origin "accommodare": features doubled velar stop (cc) and doubled bilabial nasal (mm).' },
+  { q: 'Type the correct spelling of the word meaning "essential / obligatory":', ans: 'necessary', cat: 'spelling' as const, hint: 'Classic orthography rule: one collar (c), two sleeves (ss).' },
+  { q: 'Type the correct spelling of the word meaning "to divide or set apart":', ans: 'separate', cat: 'spelling' as const, hint: 'Derives from Latin "separare": contains an "a" in the center stem, never an "e".' },
+  { q: 'Type the correct spelling of the musical cadence word "R _ _ _ _ M":', ans: 'rhythm', cat: 'spelling' as const, hint: 'Greek root "rhythmos": only uses "y" as a vowel and includes medial "th".' },
+  { q: 'Type the correct spelling of the word meaning "without any doubt":', ans: 'definitely', cat: 'spelling' as const, hint: 'Rooted in Latin "finitus" (finite, boundary): contains an "i" in the stem, never an "a".' },
+  { q: 'Type the exact opposite (antonym) of the word "ANCIENT":', ans: 'modern', cat: 'vocabulary' as const, hint: 'Refers to contemporary or present-day chronological eras.' },
+  { q: 'Type the exact opposite (antonym) of the word "ABUNDANT":', ans: 'scarce', cat: 'vocabulary' as const, hint: 'Describes insufficient, meager, or rarely occurring supply.' },
+  { q: 'Type the exact opposite (antonym) of the word "ARTIFICIAL":', ans: 'natural', cat: 'vocabulary' as const, hint: 'Existing in or derived from nature without synthetic human intervention.' },
+  { q: 'Type the exact opposite (antonym) of the word "CONCEAL":', ans: 'reveal', cat: 'vocabulary' as const, hint: 'To uncover, disclose, or bring into clear public observation.' },
+  { q: 'Type the exact opposite (antonym) of the word "BRAVE":', ans: 'cowardly', cat: 'vocabulary' as const, hint: 'Lacking courage or succumbing ignobly to fear in the face of peril.' },
+  { q: 'Type the comparative form of the adjective "BAD":', ans: 'worse', cat: 'grammar' as const, hint: 'Irregular suppletive comparative from Old English "wyrsa".' },
+  { q: 'Type the superlative form of the adjective "GOOD":', ans: 'best', cat: 'grammar' as const, hint: 'Contracted Old English superlative form of "bōt" (remedy/good).' },
+  { q: 'Type the plural form of the irregular noun "CRISIS":', ans: 'crises', cat: 'spelling' as const, hint: 'Greek loanword: singular "-is" mutates to classical plural "-es".' },
+  { q: 'Type the plural form of the noun "CRITERION":', ans: 'criteria', cat: 'spelling' as const, hint: 'Greek neuter singular "-on" transforms to the classical plural "-a".' },
+  { q: 'Type the missing preposition: "We arrived _____ London at 8:00 AM."', ans: 'in', cat: 'grammar' as const, hint: 'Syntactic rule for arriving within bounded geopolitical regions and large metropolises.' }
 ];
 
 // -------------------------------------------------------------
@@ -579,7 +675,7 @@ function buildMasterQuestionBank(): Question[] {
       category: 'spelling',
       q: `Which option displays the 100% correct spelling of the word (#${testNum})?`,
       options: [sp.word, sp.typo, sp.dist[0], sp.dist[1]],
-      hint: `Watch out for common double consonant and vowel traps in "${sp.word}".`,
+      hint: `Analyze root morphemes, historical consonant doubling, and silent vowel digraphs.`,
       explanation: `The accurate standard English spelling is "${sp.word}".`,
       moveName: 'Orthography Star',
       difficulty: 'hard',
@@ -594,7 +690,7 @@ function buildMasterQuestionBank(): Question[] {
       category: 'spelling',
       q: `Choose the correct word for: "${hp.def}" (#${testNum}):`,
       options: [hp.word, hp.dist[0], hp.dist[1], hp.dist[2]],
-      hint: `Differentiate between sound-alike words "${hp.word}" and "${hp.pair}".`,
+      hint: `Distinguish between phonetic homophone pairs by evaluating syntactic role and definition.`,
       explanation: `"${hp.word}" specifically means "${hp.def}".`,
       moveName: 'Homophone Shield',
       difficulty: 'medium',
@@ -687,7 +783,7 @@ function buildMasterQuestionBank(): Question[] {
       category: seed.cat,
       q: `[KEYBOARD TYPING CHALLENGE #${i + 1}] ${seed.q}`,
       options: [seed.ans, 'option-b', 'option-c', 'option-d'],
-      hint: `Spelling tip: ${seed.hint}`,
+      hint: seed.hint,
       explanation: `The accurate written answer is: "${seed.ans}".`,
       moveName: 'Type Strike Impact',
       difficulty: 'hard',
@@ -728,21 +824,59 @@ export function getQuestionsForMonster(
   const offset = ((cityIndex * 37) + (mobIndex * 7)) % total;
 
   const result: Question[] = [];
+  // For higher cities, inject more extreme and typing challenges to make it harder and harder!
+  const isHighTierCity = cityIndex >= 40;
+  const isExtremeCity = cityIndex >= 90;
+  const isMasterTierCity = cityIndex >= 125;
+  const isGrandmasterTierCity = cityIndex >= 150;
+
   for (let i = 0; i < count; i++) {
-    // 25% of questions are interactive typing questions!
-    let qIndex: number;
-    if (i === count - 1 && TYPING_QUESTIONS.length > 0) {
-      const typeOffset = ((cityIndex * 13) + (mobIndex * 3)) % TYPING_QUESTIONS.length;
+    // Grandmaster Tier (Cities 151 to 175 including Taiwan Metropolises):
+    // Strict C2 & Typing split to make questions truly grueling and rigorous!
+    if (isGrandmasterTierCity) {
+      if (i % 2 === 1 && TYPING_QUESTIONS.length > 0) {
+        const typeOffset = ((cityIndex * 13) + (mobIndex * 3) + i * 5) % TYPING_QUESTIONS.length;
+        const typeQ = TYPING_QUESTIONS[typeOffset];
+        result.push({
+          ...typeQ,
+          id: `c${cityIndex}-m${mobIndex}-q${i + 1}`,
+        });
+        continue;
+      }
+      if (SUPER_CHALLENGING_QUESTIONS.length > 0) {
+        const extremeOffset = ((cityIndex * 19) + (mobIndex * 5) + i * 7) % SUPER_CHALLENGING_QUESTIONS.length;
+        const extremeQ = SUPER_CHALLENGING_QUESTIONS[extremeOffset];
+        result.push({
+          ...extremeQ,
+          id: `c${cityIndex}-m${mobIndex}-q${i + 1}`,
+        });
+        continue;
+      }
+    }
+
+    // Typing questions (increasing ratio for higher cities)
+    if ((i === count - 1 || (isMasterTierCity && i === 1) || (isExtremeCity && i === 1)) && TYPING_QUESTIONS.length > 0) {
+      const typeOffset = ((cityIndex * 13) + (mobIndex * 3) + i * 5) % TYPING_QUESTIONS.length;
       const typeQ = TYPING_QUESTIONS[typeOffset];
       result.push({
         ...typeQ,
         id: `c${cityIndex}-m${mobIndex}-q${i + 1}`,
       });
       continue;
-    } else {
-      qIndex = (offset + i * 11) % total;
     }
 
+    // Super Challenging extreme C2 questions for high tier cities
+    if ((isMasterTierCity || isExtremeCity || (isHighTierCity && i === 0)) && SUPER_CHALLENGING_QUESTIONS.length > 0) {
+      const extremeOffset = ((cityIndex * 19) + (mobIndex * 5) + i * 7) % SUPER_CHALLENGING_QUESTIONS.length;
+      const extremeQ = SUPER_CHALLENGING_QUESTIONS[extremeOffset];
+      result.push({
+        ...extremeQ,
+        id: `c${cityIndex}-m${mobIndex}-q${i + 1}`,
+      });
+      continue;
+    }
+
+    const qIndex = (offset + i * 11) % total;
     const baseQ = MASTER_QUESTION_BANK[qIndex];
     result.push({
       ...baseQ,

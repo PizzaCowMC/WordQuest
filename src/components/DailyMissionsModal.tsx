@@ -47,8 +47,8 @@ export const DailyMissionsModal: React.FC<DailyMissionsModalProps> = ({
     const handleUpdate = () => {
       setMissionsState(getDailyMissions());
     };
-    window.addEventListener('wordquest_missions_updated', handleUpdate);
-    return () => window.removeEventListener('wordquest_missions_updated', handleUpdate);
+    window.addEventListener('lexiroam_missions_updated', handleUpdate);
+    return () => window.removeEventListener('lexiroam_missions_updated', handleUpdate);
   }, []);
 
   const handleClaim = (mission: DailyMission) => {

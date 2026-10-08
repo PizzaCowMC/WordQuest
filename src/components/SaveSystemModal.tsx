@@ -38,8 +38,8 @@ interface SaveSlot {
   profile: StudentProfile;
 }
 
-const STORAGE_KEY = 'wordquest_student_profile';
-const SLOTS_KEY = 'wordquest_save_slots';
+const STORAGE_KEY = 'lexiroam_student_profile';
+const SLOTS_KEY = 'lexiroam_save_slots';
 
 export const SaveSystemModal: React.FC<SaveSystemModalProps> = ({
   student,
@@ -160,7 +160,7 @@ export const SaveSystemModal: React.FC<SaveSystemModalProps> = ({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `wordquest-save-${student.name.toLowerCase().replace(/\s+/g, '-')}-${currentCity.name.toLowerCase()}-${Date.now()}.json`;
+    a.download = `lexiroam-save-${student.name.toLowerCase().replace(/\s+/g, '-')}-${currentCity.name.toLowerCase()}-${Date.now()}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -225,7 +225,7 @@ export const SaveSystemModal: React.FC<SaveSystemModalProps> = ({
                 Adventure Save Center
               </h2>
               <p className="text-[11px] text-slate-400">
-                WordQuest Persistent Progress & Multi-Slot Manager
+                Lexiroam Persistent Progress & Multi-Slot Manager
               </p>
             </div>
           </div>
@@ -409,7 +409,7 @@ export const SaveSystemModal: React.FC<SaveSystemModalProps> = ({
 
         {/* Footer */}
         <div className="px-5 py-3.5 bg-slate-950 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
-          <span>WordQuest Cloud & Local Storage Engine</span>
+          <span>Lexiroam Cloud & Local Storage Engine</span>
           <button
             onClick={onClose}
             className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition cursor-pointer"

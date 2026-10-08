@@ -10,18 +10,18 @@ export interface UseMultiplayerProps {
 export type ConnectionStatus = 'connected' | 'connecting' | 'disconnected';
 
 function getInitialPlayerId(): string {
-  if (typeof window !== 'undefined' && (window as any).__wordquest_player_id) {
-    return (window as any).__wordquest_player_id;
+  if (typeof window !== 'undefined' && (window as any).__lexiroam_player_id) {
+    return (window as any).__lexiroam_player_id;
   }
   let id = '';
   try {
-    id = localStorage.getItem('wordquest_player_id') || '';
+    id = localStorage.getItem('lexiroam_player_id') || '';
   } catch {
     // ignore
   }
   if (!id) {
     try {
-      id = sessionStorage.getItem('wordquest_player_id') || '';
+      id = sessionStorage.getItem('lexiroam_player_id') || '';
     } catch {
       // ignore
     }
@@ -29,14 +29,14 @@ function getInitialPlayerId(): string {
   if (!id) {
     id = 'p-' + Math.random().toString(36).substring(2, 9) + '-' + Date.now().toString(36);
     try {
-      localStorage.setItem('wordquest_player_id', id);
+      localStorage.setItem('lexiroam_player_id', id);
     } catch {}
     try {
-      sessionStorage.setItem('wordquest_player_id', id);
+      sessionStorage.setItem('lexiroam_player_id', id);
     } catch {}
   }
   if (typeof window !== 'undefined') {
-    (window as any).__wordquest_player_id = id;
+    (window as any).__lexiroam_player_id = id;
   }
   return id;
 }
@@ -45,7 +45,7 @@ export function useMultiplayer({ student, currentCity, cityIndex }: UseMultiplay
   const [status, setStatus] = useState<ConnectionStatus>('connecting');
   const [room, setRoom] = useState<string>(() => {
     try {
-      return localStorage.getItem('wordquest_room_code') || 'global';
+      return localStorage.getItem('lexiroam_room_code') || 'global';
     } catch {
       return 'global';
     }
@@ -541,7 +541,7 @@ export function useMultiplayer({ student, currentCity, cityIndex }: UseMultiplay
     const cleanRoom = newRoomCode.trim().toLowerCase() || 'global';
     setRoom(cleanRoom);
     try {
-      localStorage.setItem('wordquest_room_code', cleanRoom);
+      localStorage.setItem('lexiroam_room_code', cleanRoom);
     } catch {
       // ignore
     }
